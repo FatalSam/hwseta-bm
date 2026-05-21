@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
+import Breadcrumb from '@/components/breadcrumb';
 import { getPublicForm, submitPublicForm } from '@/api/formBuilder';
 import { PublicForm } from '@/components/form-builder';
 import type { FormSettings } from '@/types/dynamicForm';
@@ -21,6 +22,14 @@ const decodeJwtPayload = (jwt: string | null | undefined): Record<string, unknow
   }
 };
 
+function PublicFormShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-hwseta-green-muted/40">
+      {children}
+    </div>
+  );
+}
+
 export default function PublicFormPage() {
   const params = useParams();
   const formId = typeof params.formId === 'string' ? params.formId : '';
@@ -30,6 +39,8 @@ export default function PublicFormPage() {
   const [settings, setSettings] = useState<FormSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const breadcrumbTitle = title?.trim() || 'Form';
 
   const createdByUserId = useMemo(() => {
     const payload = decodeJwtPayload(token);
@@ -90,40 +101,39 @@ export default function PublicFormPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] bg-slate-100/90 py-10">
-        <div className="mx-auto max-w-2xl px-4">
+      <PublicFormShell>
+        <Breadcrumb breadcrumbTitle="Form" />
+        <div className="mx-auto max-w-2xl px-4 py-8">
           <div className="rounded-2xl border border-slate-200/90 bg-white px-6 py-10 text-center text-sm text-zinc-500 shadow-md">
             Loading form...
           </div>
         </div>
-      </div>
+      </PublicFormShell>
     );
   }
 
   if (error || !settings) {
     return (
-      <div className="min-h-[60vh] bg-slate-100/90 py-10">
-        <div className="mx-auto max-w-2xl px-4">
+      <PublicFormShell>
+        <Breadcrumb breadcrumbTitle="Form" />
+        <div className="mx-auto max-w-2xl px-4 py-8">
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             {error || 'This form could not be loaded.'}
           </div>
         </div>
-      </div>
+      </PublicFormShell>
     );
   }
 
   return (
-    <div className="min-h-[60vh] bg-slate-100/90 py-10">
-      <div className="mx-auto max-w-2xl px-4">
-        {title ? (
-          <div className="mb-8 overflow-hidden rounded-2xl border border-slate-200/90 bg-white px-6 py-5 shadow-md">
-            <div className="mb-3 h-1.5 w-20 rounded-full bg-[#124a3f]" aria-hidden />
-            <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
-            {description ? <p className="mt-2 text-sm text-slate-600">{description}</p> : null}
-          </div>
+    <PublicFormShell>
+      <Breadcrumb breadcrumbTitle={breadcrumbTitle} />
+      <div className="mx-auto max-w-2xl px-4 py-8 pb-12">
+        {description ? (
+          <p className="mb-6 text-center text-sm text-slate-600">{description}</p>
         ) : null}
         <PublicForm settings={settings} formId={formId} onSubmit={onSubmit} />
       </div>
-    </div>
+    </PublicFormShell>
   );
 }

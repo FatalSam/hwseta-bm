@@ -57,7 +57,7 @@ Existing builder URLs stay unchanged.
 
 | Route | Screen |
 |-------|--------|
-| `/form/[formId]` | Public form fill; `/form-builder/[formId]` redirects here |
+| `/form/[formId]` | Public form fill under [`app/(other)/form/[formId]`](app/(other)/form/[formId]/page.tsx) (Header/Footer via [`app/(other)/layout.tsx`](app/(other)/layout.tsx)); `/form-builder/[formId]` redirects here |
 | `/s/[code]` | Short-link redirect → resolved full form URL |
 
 ### 2.4 Environment
