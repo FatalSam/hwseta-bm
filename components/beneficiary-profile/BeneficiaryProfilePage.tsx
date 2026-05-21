@@ -205,13 +205,6 @@ function formatDateForApi(value: string): string | null {
   return trimmed;
 }
 
-function formatDateForDisplay(value: string): string {
-  const normalized = formatDateForInput(value);
-  if (!normalized) return "";
-  const [year, month, day] = normalized.split("-");
-  return `${day}/${month}/${year}`;
-}
-
 function formatDocumentUploadedDisplay(iso: string | null | undefined): string {
   const raw = normalizeString(iso);
   if (!raw) return "—";

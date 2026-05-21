@@ -7,7 +7,6 @@ import {
   FaArrowRight,
   FaChartLine,
   FaIdBadge,
-  FaMapMarkedAlt,
   FaUserGraduate,
   FaUsers,
   FaWarehouse,
@@ -32,7 +31,6 @@ function cn(...c: (string | boolean | undefined)[]) {
 }
 
 type DashboardRow = { label: string; count: number; percentage?: number };
-type ProvinceRow = { province: string; count: number };
 
 function asObject(value: unknown): Record<string, unknown> | null {
   return value != null && typeof value === 'object' ? (value as Record<string, unknown>) : null;
@@ -429,19 +427,6 @@ export default function AdminDashboardPage() {
         ? 100
         : 0;
   const maxMonthlyCount = Math.max(1, ...monthlyRows.map((row) => row.count));
-  const fallbackTopProvinces = useMemo<ProvinceRow[]>(() => {
-    const counts = new Map<string, number>();
-    for (const row of beneficiaryRows) {
-      const province = toText(row.physicalAddressProvince) || 'Unspecified';
-      counts.set(province, (counts.get(province) ?? 0) + 1);
-    }
-    return Array.from(counts.entries())
-      .map(([province, count]) => ({ province, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-  }, [beneficiaryRows]);
-  const provinceRows = (data?.topProvinces?.length ?? 0) > 0 ? (data?.topProvinces ?? []) : fallbackTopProvinces;
-  const maxProvinceCount = Math.max(1, ...provinceRows.map((row) => row.count));
   const genderRows = (data?.demographics.gender?.length ?? 0) > 0 ? (data?.demographics.gender ?? []) : buildCountRows(beneficiaryRows.map((row) => row.gender as string | null | undefined));
   const ageBandRows = (data?.demographics.ageBands?.length ?? 0) > 0 ? (data?.demographics.ageBands ?? []) : buildAgeBands(beneficiaryRows.map((row) => Number(row.age ?? 0)));
   const raceRows = (data?.demographics.raceGroups?.length ?? 0) > 0 ? (data?.demographics.raceGroups ?? []) : buildCountRows(beneficiaryRows.map((row) => row.raceGroup as string | null | undefined));

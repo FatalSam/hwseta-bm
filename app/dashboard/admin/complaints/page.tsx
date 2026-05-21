@@ -3,15 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  FaChartLine,
   FaCheckCircle,
   FaClock,
-  FaDoorClosed,
   FaEye,
-  FaExclamationCircle,
   FaFolderOpen,
   FaListAlt,
-  FaPauseCircle,
   FaUndo,
 } from 'react-icons/fa';
 import {
