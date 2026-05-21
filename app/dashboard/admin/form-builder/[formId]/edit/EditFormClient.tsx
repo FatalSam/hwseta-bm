@@ -6,6 +6,7 @@ import { FormBuilderCanvas } from '@/components/form-builder';
 import type { FormSettings } from '@/types/dynamicForm';
 import { getPublicForm, updateManageForm } from '@/api/formBuilder';
 import { adminFormTheme } from '@/components/admin/adminFormTheme';
+import { buildPublicFormPath } from '@/lib/appBaseUrl';
 
 const decodeJwtPayload = (jwt: string | null | undefined): Record<string, unknown> | null => {
   if (!jwt) return null;
@@ -93,7 +94,9 @@ export function EditFormClient({ formId, token }: Props) {
   }
 
   const publicHref =
-    typeof window !== 'undefined' ? `${window.location.origin}/form-builder/${formId}` : `/form-builder/${formId}`;
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${buildPublicFormPath(formId)}`
+      : buildPublicFormPath(formId);
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">

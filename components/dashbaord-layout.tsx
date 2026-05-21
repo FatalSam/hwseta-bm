@@ -66,6 +66,7 @@ const ADMIN_PROGRAMME_ENROLMENTS = `${ADMIN_BASE}/programme-enrolments`;
 const ADMIN_TRAINING_PROVIDERS = `${ADMIN_BASE}/training-providers`;
 const ADMIN_EMPLOYERS = `${ADMIN_BASE}/employers`;
 const ADMIN_FORM_BUILDER = `${ADMIN_BASE}/form-builder`;
+const ADMIN_FORM_SUBMISSIONS = `${ADMIN_BASE}/form-submissions`;
 const ADMIN_COMPLAINTS = `${ADMIN_BASE}/complaints`;
 const ADMIN_SETUP_BASE = `${ADMIN_BASE}/setup`;
 const ADMIN_SETUP_PROGRAMMES_SETUP = `${ADMIN_SETUP_BASE}/programmes-setup`;
@@ -81,6 +82,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const [adminOpen, setAdminOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [adminSetupOpen, setAdminSetupOpen] = useState(false);
+  const [formsOpen, setFormsOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
@@ -119,6 +121,19 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       setAdminSetupOpen(true);
     } else {
       setAdminSetupOpen(false);
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (
+      pathname.startsWith(`${ADMIN_FORM_BUILDER}/`) ||
+      pathname === ADMIN_FORM_BUILDER ||
+      pathname.startsWith(`${ADMIN_FORM_SUBMISSIONS}/`) ||
+      pathname === ADMIN_FORM_SUBMISSIONS
+    ) {
+      setFormsOpen(true);
+    } else {
+      setFormsOpen(false);
     }
   }, [pathname]);
 
@@ -173,6 +188,13 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     const reportsSubmenuId = `sidebar-reports-submenu-${navInstance}`;
     const adminSetupTriggerId = `sidebar-admin-setup-trigger-${navInstance}`;
     const adminSetupSubmenuId = `sidebar-admin-setup-submenu-${navInstance}`;
+    const adminFormsTriggerId = `sidebar-admin-forms-trigger-${navInstance}`;
+    const adminFormsSubmenuId = `sidebar-admin-forms-submenu-${navInstance}`;
+    const formsNavActive =
+      pathname === ADMIN_FORM_BUILDER ||
+      pathname.startsWith(`${ADMIN_FORM_BUILDER}/`) ||
+      pathname === ADMIN_FORM_SUBMISSIONS ||
+      pathname.startsWith(`${ADMIN_FORM_SUBMISSIONS}/`);
     return (
     <>
       <div
@@ -442,15 +464,68 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                       {!collapsed && <span>Employers</span>}
                     </Link>
                   </li>
-                  <li>
-                    <Link
-                      href={ADMIN_FORM_BUILDER}
-                      className={navLinkClass(ADMIN_FORM_BUILDER, collapsed, { exact: true })}
-                      aria-label={collapsed ? "Form builder" : undefined}
+                  <li className="space-y-1">
+                    <button
+                      type="button"
+                      id={adminFormsTriggerId}
+                      aria-expanded={formsOpen}
+                      aria-controls={adminFormsSubmenuId}
+                      aria-label={collapsed ? "Forms" : undefined}
+                      onClick={() => setFormsOpen((o) => !o)}
+                      className={classNames(
+                        "group relative flex w-full items-center rounded-lg text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-hwseta-green/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8fafc]",
+                        collapsed ? "justify-center px-2 py-2.5" : "justify-between gap-2 px-3 py-2.5",
+                        formsNavActive
+                          ? "bg-white text-hwseta-green-dark shadow-sm ring-1 ring-slate-200/80 before:absolute before:left-0 before:top-1/2 before:h-7 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-hwseta-yellow"
+                          : "text-slate-600 hover:bg-white/90 hover:text-hwseta-green-dark hover:shadow-sm",
+                      )}
                     >
-                      <PencilSquareIcon className="h-5 w-5 shrink-0 text-slate-500 opacity-90 group-hover:opacity-100" aria-hidden />
-                      {!collapsed && <span>Form builder</span>}
-                    </Link>
+                      <span className={classNames("flex min-w-0 items-center gap-3", collapsed && "justify-center")}>
+                        <ClipboardDocumentListIcon className="h-5 w-5 shrink-0 text-slate-500 opacity-90 group-hover:opacity-100" aria-hidden />
+                        {!collapsed && <span>Forms</span>}
+                      </span>
+                      {!collapsed && (
+                        <ChevronDownIcon
+                          className={classNames(
+                            "h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-hover:text-slate-600",
+                            formsOpen && "rotate-180",
+                          )}
+                          aria-hidden
+                        />
+                      )}
+                    </button>
+                    {formsOpen && (
+                      <ul
+                        id={adminFormsSubmenuId}
+                        role="list"
+                        className={classNames(
+                          "space-y-1 border-l-2 border-hwseta-green/35",
+                          collapsed ? "ml-1 flex flex-col items-stretch py-0.5 pl-2" : "ml-3 py-0.5 pl-3",
+                        )}
+                        aria-labelledby={adminFormsTriggerId}
+                      >
+                        <li>
+                          <Link
+                            href={ADMIN_FORM_BUILDER}
+                            className={navLinkClass(ADMIN_FORM_BUILDER, collapsed, { exact: false })}
+                            aria-label={collapsed ? "Builder" : undefined}
+                          >
+                            <PencilSquareIcon className="h-5 w-5 shrink-0 text-slate-500 opacity-90 group-hover:opacity-100" aria-hidden />
+                            {!collapsed && <span>Builder</span>}
+                          </Link>
+                        </li>
+                        <li>
+                          <Link
+                            href={ADMIN_FORM_SUBMISSIONS}
+                            className={navLinkClass(ADMIN_FORM_SUBMISSIONS, collapsed, { exact: false })}
+                            aria-label={collapsed ? "Submissions" : undefined}
+                          >
+                            <InboxIcon className="h-5 w-5 shrink-0 text-slate-500 opacity-90 group-hover:opacity-100" aria-hidden />
+                            {!collapsed && <span>Submissions</span>}
+                          </Link>
+                        </li>
+                      </ul>
+                    )}
                   </li>
                   <li>
                     <Link

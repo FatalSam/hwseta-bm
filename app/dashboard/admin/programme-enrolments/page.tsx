@@ -5,24 +5,15 @@ import axios from 'axios';
 import { ChevronDownIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { useQuery } from '@tanstack/react-query';
 import { adminFormTheme } from '@/components/admin/adminFormTheme';
-import apiClient from '@/ultis/apiClient';
 import { exportRowsToExcel } from '@/ultis/exportExcel';
 import { FaFileExcel } from 'react-icons/fa';
-
-type StatusCount = { status: string; count: number };
-type QualificationRow = {
-  qualificationId: number | null;
-  qualification: string;
-  beneficiaryCount: number;
-  statusCounts: StatusCount[];
-};
-type ProgrammeDrilldownRow = {
-  programmeId: number | null;
-  programme: string;
-  beneficiaryCount: number;
-  statusCounts: StatusCount[];
-  qualifications: QualificationRow[];
-};
+import {
+  fetchProgrammeEnrolmentsDrilldown,
+  programmeEnrolmentsDrilldownQueryKey,
+  statusCountByName,
+  type ProgrammeEnrolmentDrilldownRow,
+  type ProgrammeEnrolmentQualificationRow,
+} from '@/lib/programme-enrolments-drilldown';
 
 function apiErr(e: unknown): string {
   if (axios.isAxiosError(e)) {
@@ -36,103 +27,6 @@ function apiErr(e: unknown): string {
     return e.message || 'Request failed';
   }
   return e instanceof Error ? e.message : 'Something went wrong';
-}
-
-function asRecord(v: unknown): Record<string, unknown> | null {
-  return v != null && typeof v === 'object' ? (v as Record<string, unknown>) : null;
-}
-
-function asArray(v: unknown): unknown[] {
-  return Array.isArray(v) ? v : [];
-}
-
-function toNumber(v: unknown): number {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function toStringSafe(v: unknown): string {
-  return v == null ? '' : String(v).trim();
-}
-
-function normalizeDrilldownPayload(data: unknown): ProgrammeDrilldownRow[] {
-  const root = asRecord(data);
-  const programmesRaw = asArray(root?.items ?? root?.data ?? root?.programmes ?? root?.programmeDrilldown ?? data);
-
-  return programmesRaw.map((p) => {
-    const pObj = asRecord(p) ?? {};
-    const qualificationsRaw = asArray(
-      pObj.qualifications ?? pObj.children ?? pObj.rows ?? pObj.programmeQualifications,
-    );
-
-    const qualifications: QualificationRow[] = qualificationsRaw.map((q) => {
-      const qObj = asRecord(q) ?? {};
-      const statusRaw = asArray(qObj.statusBreakdown ?? qObj.statusCounts ?? qObj.completionStatuses ?? qObj.counts ?? qObj.statuses);
-      return {
-        qualificationId: (() => {
-          const raw = qObj.qualificationId ?? qObj.qualificationID ?? qObj.id ?? qObj.ID;
-          const n = Number(raw);
-          return Number.isFinite(n) ? n : null;
-        })(),
-        qualification:
-          toStringSafe(qObj.qualification) ||
-          toStringSafe(qObj.qualificationName) ||
-          toStringSafe(qObj.name) ||
-          'Unspecified qualification',
-        beneficiaryCount: toNumber(qObj.distinctBeneficiaryCount ?? qObj.beneficiaryCount ?? qObj.distinctCount ?? 0),
-        statusCounts: statusRaw.map((s) => {
-          const sObj = asRecord(s) ?? {};
-          return {
-            status:
-              toStringSafe(sObj.status) ||
-              toStringSafe(sObj.statusName) ||
-              toStringSafe(sObj.programmeCompletionStatus) ||
-              toStringSafe(sObj.name) ||
-              'Unknown',
-            count: toNumber(sObj.enrolmentCount ?? sObj.count ?? sObj.total ?? sObj.value),
-          };
-        }),
-      };
-    });
-
-    const programmeStatusRaw = asArray(
-      pObj.statusTotals ?? pObj.statusCounts ?? pObj.completionStatuses ?? pObj.counts ?? pObj.statuses,
-    );
-
-    return {
-      programmeId: (() => {
-        const raw = pObj.programmeId ?? pObj.programmeID ?? pObj.id ?? pObj.ID;
-        const n = Number(raw);
-        return Number.isFinite(n) ? n : null;
-      })(),
-      programme:
-        toStringSafe(pObj.programme) ||
-        toStringSafe(pObj.programmeName) ||
-        toStringSafe(pObj.name) ||
-        'Unspecified programme',
-      beneficiaryCount: toNumber(pObj.distinctBeneficiaryCount ?? pObj.beneficiaryCount ?? pObj.distinctCount ?? 0),
-      statusCounts: programmeStatusRaw.map((s) => {
-        const sObj = asRecord(s) ?? {};
-        return {
-          status:
-            toStringSafe(sObj.status) ||
-            toStringSafe(sObj.statusName) ||
-            toStringSafe(sObj.programmeCompletionStatus) ||
-            toStringSafe(sObj.name) ||
-            'Unknown',
-          count: toNumber(sObj.enrolmentCount ?? sObj.count ?? sObj.total ?? sObj.value),
-        };
-      }),
-      qualifications,
-    };
-  });
-}
-
-function statusCountByName(statusCounts: StatusCount[], target: string): number {
-  const targetNorm = target.toLowerCase();
-  return statusCounts
-    .filter((s) => s.status.toLowerCase() === targetNorm)
-    .reduce((sum, s) => sum + s.count, 0);
 }
 
 function renderCountLink(
@@ -156,11 +50,8 @@ export default function AdminProgrammeEnrolmentsPage() {
   const [openProgrammes, setOpenProgrammes] = useState<Record<string, boolean>>({});
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['admin-programme-enrolments-drilldown'],
-    queryFn: async () => {
-      const { data } = await apiClient.get('/api/Admin/programme-enrollments/drilldown');
-      return normalizeDrilldownPayload(data);
-    },
+    queryKey: programmeEnrolmentsDrilldownQueryKey,
+    queryFn: fetchProgrammeEnrolmentsDrilldown,
     retry: false,
   });
 
@@ -209,14 +100,14 @@ export default function AdminProgrammeEnrolmentsPage() {
   }, []);
 
   const countUrl = useCallback(
-    (kind: 'programme' | 'qualification', row: ProgrammeDrilldownRow | QualificationRow, status?: string) => {
+    (kind: 'programme' | 'qualification', row: ProgrammeEnrolmentDrilldownRow | ProgrammeEnrolmentQualificationRow, status?: string) => {
       const params = new URLSearchParams();
       if (kind === 'programme') {
-        const p = row as ProgrammeDrilldownRow;
+        const p = row as ProgrammeEnrolmentDrilldownRow;
         if (p.programmeId != null) params.set('programmeId', String(p.programmeId));
         params.set('programmeName', p.programme);
       } else {
-        const q = row as QualificationRow;
+        const q = row as ProgrammeEnrolmentQualificationRow;
         if (q.qualificationId != null) params.set('qualificationId', String(q.qualificationId));
         params.set('qualificationName', q.qualification);
       }

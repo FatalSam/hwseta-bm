@@ -25,6 +25,22 @@ export interface FormListItem {
   updatedAt: string | null;
 }
 
+export interface FormListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string | null;
+  updatedFrom?: string | null;
+  updatedTo?: string | null;
+}
+
+export interface FormListPagedResult {
+  items: FormListItem[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
 const unwrapArray = <T>(data: unknown): T[] => {
   if (Array.isArray(data)) return data as T[];
   if (data && typeof data === 'object') {
@@ -104,14 +120,50 @@ export function normalizeFormDetail(data: unknown): {
   };
 }
 
-export async function listManageForms(): Promise<FormListItem[]> {
-  const response = await apiClient.get(MANAGE);
-  const rows = unwrapArray<Record<string, unknown>>(response.data);
-  return rows.map((row) => ({
+function mapFormListRow(row: Record<string, unknown>): FormListItem {
+  return {
     id: pickFormId(row),
     title: pickTitle(row),
     updatedAt: pickUpdatedAt(row),
-  }));
+  };
+}
+
+function tryUnwrapPagedForms(data: unknown): FormListPagedResult | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const root = data as Record<string, unknown>;
+  const itemsRaw = root.items ?? root.data ?? root.results;
+  if (!Array.isArray(itemsRaw)) return null;
+  const page = Number(root.page ?? root.Page ?? 1);
+  const pageSize = Number(root.pageSize ?? root.PageSize ?? itemsRaw.length);
+  const totalCount = Number(root.totalCount ?? root.TotalCount ?? itemsRaw.length);
+  const totalPages = Number(
+    root.totalPages ?? root.TotalPages ?? Math.max(1, Math.ceil(totalCount / pageSize)),
+  );
+  return {
+    items: (itemsRaw as Record<string, unknown>[]).map(mapFormListRow),
+    page: Number.isFinite(page) ? page : 1,
+    pageSize: Number.isFinite(pageSize) ? pageSize : itemsRaw.length,
+    totalCount: Number.isFinite(totalCount) ? totalCount : itemsRaw.length,
+    totalPages: Number.isFinite(totalPages) ? totalPages : 1,
+  };
+}
+
+/** List forms; passes optional query params when backend supports server-side filter/paging. */
+export async function listManageForms(params?: FormListParams): Promise<FormListItem[]> {
+  const query: Record<string, string | number> = {};
+  if (params?.page != null) query.page = params.page;
+  if (params?.pageSize != null) query.pageSize = params.pageSize;
+  if (params?.search) query.search = params.search;
+  if (params?.updatedFrom) query.updatedFrom = params.updatedFrom;
+  if (params?.updatedTo) query.updatedTo = params.updatedTo;
+
+  const response = await apiClient.get(MANAGE, {
+    params: Object.keys(query).length > 0 ? query : undefined,
+  });
+  const paged = tryUnwrapPagedForms(response.data);
+  if (paged) return paged.items;
+  const rows = unwrapArray<Record<string, unknown>>(response.data);
+  return rows.map(mapFormListRow);
 }
 
 export async function createManageForm(payload: ManageCreateFormPayload): Promise<string> {
