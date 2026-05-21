@@ -1,0 +1,11 @@
+---
+description: Admin and app exports labelled Excel must be real .xlsx files, not CSV
+alwaysApply: true
+---
+
+# Export to Excel (XLSX)
+
+- Any feature labelled **Export Excel**, **Export to Excel**, or user-facing spreadsheet download intended for Excel must produce a **`.xlsx`** file.
+- Do **not** implement those flows as CSV (`.csv`) or `text/csv` blobs unless the product explicitly asks for CSV.
+- Use the shared helper `exportRowsToExcel` from `ultis/exportExcel.ts` (SheetJS `xlsx`), with a sensible filename and sheet name.
+- Buttons should say **Export Excel** (not Export CSV) when the download is `.xlsx`.

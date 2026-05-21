@@ -1,0 +1,17 @@
+---
+description: Use the shared HWSETA grid style for new tables and data grids
+alwaysApply: true
+---
+
+# HWSETA Grid Style
+
+- For new grids and tables, use the shared HWSETA table look instead of introducing a new visual pattern.
+- Prefer a wrapper such as `overflow-x-auto rounded-xl border border-slate-100`.
+- Prefer table classes such as `min-w-full divide-y divide-slate-200 text-left text-sm`.
+- Use a green header row with classes aligned to existing admin grids, for example `bg-hwseta-green text-xs font-semibold uppercase text-white shadow-sm`.
+- Use `tbody` with `divide-y divide-slate-100 bg-white`.
+- Keep row hover states subtle and consistent, for example `hover:bg-emerald-50/30`.
+- Use compact cell spacing similar to existing site grids, typically `px-3 py-2.5` or `px-3 py-3`.
+- Avoid adding long helper paragraphs above or below grids unless the user explicitly asks for instructional copy.
+- Keep action cells compact and aligned right when they contain buttons.
+- When a new screen needs a grid, match existing HWSETA admin grid styling first, then extend only if the feature truly needs something different.

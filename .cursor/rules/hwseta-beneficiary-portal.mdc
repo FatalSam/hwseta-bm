@@ -1,0 +1,29 @@
+---
+description: HWSETA Beneficiary Monitoring portal scope, routes, and API conventions
+alwaysApply: true
+---
+
+# HWSETA Beneficiary Monitoring
+
+## Product scope
+
+- Next.js app for **beneficiaries only**: public routes are `/`, `/login`, `/signup` (Register UI).
+- Authenticated area: `/dashboard/beneficiary` and nested routes (e.g. **My Profile** at `/dashboard/beneficiary/profile`).
+- **JWT role** must be `Beneficiary` (case-insensitive). Non-beneficiaries are logged out or blocked from the dashboard.
+
+## Backend API
+
+- Base URL: `NEXT_PUBLIC_API_URL` (default in `config/environment.ts` points at local HWSETA API).
+- **Auth**: `POST /api/Auth/Login`, `POST /api/Auth/Register` (see project types and `api/auth.ts`).
+- **Profile dropdowns (GET only unless specified)**: `GET /api/Dropdowns/*` as documented in `HWSETAAPI/HWSETAAPI_Dropdowns_Postman.json` (provinces, municipalities, districts, suburbs, postal codes, demographics, grants, etc.).
+- Do **not** assume HWSETABeneficiaryHub legacy paths (`/api/provinces`, etc.); use `/api/Dropdowns/...` for this project.
+
+## UI source of truth
+
+- **My Profile** UI is ported from `connect-mybeneficiary-main` (`app/profile/page.tsx`). Keep layout/labels aligned with [Connect My Beneficiary](https://connect.mybeneficiary.co.za/profile/) unless requirements change.
+- Wire **GET** dropdown endpoints first; defer **POST/PUT/DELETE** profile save until the HWSETA beneficiary profile API is agreed.
+
+## Client patterns
+
+- HTTP: `ultis/apiClient.ts` (Axios, bearer token from `authStore`).
+- Auth user shape: `types/auth.ts` (`userID`, `firstName`, `lastName`, `email`, …) — not `UserID` / `User` from older apps.
