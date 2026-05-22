@@ -468,6 +468,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                     <button
                       type="button"
                       id={adminFormsTriggerId}
+                      data-nav-section="admin-forms"
                       aria-expanded={formsOpen}
                       aria-controls={adminFormsSubmenuId}
                       aria-label={collapsed ? "Forms" : undefined}
@@ -507,6 +508,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                         <li>
                           <Link
                             href={ADMIN_FORM_BUILDER}
+                            data-nav-item="forms-builder"
                             className={navLinkClass(ADMIN_FORM_BUILDER, collapsed, { exact: false })}
                             aria-label={collapsed ? "Builder" : undefined}
                           >
@@ -517,6 +519,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                         <li>
                           <Link
                             href={ADMIN_FORM_SUBMISSIONS}
+                            data-nav-item="forms-submissions"
                             className={navLinkClass(ADMIN_FORM_SUBMISSIONS, collapsed, { exact: false })}
                             aria-label={collapsed ? "Submissions" : undefined}
                           >
