@@ -114,6 +114,14 @@ export interface FormDistributionCreateResult {
   pendingCount: number;
 }
 
+export interface FormDistributionSendResult {
+  distributionId: string;
+  processedCount: number;
+  sentCount: number;
+  failedCount: number;
+  pendingCount: number;
+}
+
 export interface ShortLinkResult {
   code: string;
   shortUrl: string;

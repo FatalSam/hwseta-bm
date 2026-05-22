@@ -8,14 +8,15 @@ import { useQuery } from '@tanstack/react-query';
 import { FaArrowLeft, FaPaperPlane, FaPlus, FaTrash } from 'react-icons/fa';
 import { adminFormTheme } from '@/components/admin/adminFormTheme';
 import { listManageForms } from '@/api/formBuilder';
+import { listAdminBeneficiaries } from '@/api/adminBeneficiaries';
+import { getBeneficiaryProfileOptions } from '@/api/beneficiaryProfile';
+import { listQualifications } from '@/api/programmeSetup';
 import { useFormDistributionMutations } from '@/hooks/useFormSubmissions';
 import {
   ALL_QUALIFICATIONS_VALUE,
   fetchProgrammeEnrolmentsDrilldown,
   getProgrammeAudienceRecipientCount,
   programmeEnrolmentsDrilldownQueryKey,
-  toProgrammeEnrolmentSelectOptions,
-  toQualificationEnrolmentSelectOptions,
 } from '@/lib/programme-enrolments-drilldown';
 import { useAuthStore } from '@/store/authStore';
 import { getUserIdFromToken } from '@/lib/jwt-user-id';
@@ -72,7 +73,12 @@ function countEligible(
 export default function FormSubmissionsSendAdmin() {
   const router = useRouter();
   const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
   const createdByUserId = getUserIdFromToken(token) ?? '';
+  const programmeOrganisationId = useMemo(() => {
+    const parsed = Number(String(user?.companyID ?? '').trim());
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  }, [user?.companyID]);
 
   const [formId, setFormId] = useState('');
   const [audienceType, setAudienceType] = useState<AudienceType>('all_beneficiaries');
@@ -100,19 +106,50 @@ export default function FormSubmissionsSendAdmin() {
     retry: false,
   });
 
+  const profileOptionsQuery = useQuery({
+    queryKey: ['beneficiary-profile', 'options', 'form-submissions-send'],
+    queryFn: getBeneficiaryProfileOptions,
+    retry: false,
+  });
+
+  const qualificationsQuery = useQuery({
+    queryKey: ['programme-setup', 'qualifications', programmeOrganisationId, 'form-submissions-send'],
+    queryFn: () => listQualifications(programmeOrganisationId),
+    retry: false,
+  });
+
+  const beneficiaryCountQuery = useQuery({
+    queryKey: ['admin-beneficiaries', 'count', 'form-submissions-send'],
+    queryFn: () => listAdminBeneficiaries({ page: 1, pageSize: 1 }),
+    retry: false,
+  });
+
   const drilldownRows = drilldownQuery.data ?? [];
+  const beneficiaryTotal = beneficiaryCountQuery.data?.totalCount ?? 0;
 
   const programmeOptions = useMemo(
-    () => toProgrammeEnrolmentSelectOptions(drilldownRows),
-    [drilldownRows],
+    () =>
+      (profileOptionsQuery.data?.programmes ?? [])
+        .map((option) => ({
+          programmeId: String(option.id ?? '').trim(),
+          programmeName: option.name?.trim() ?? '',
+        }))
+        .filter((option) => option.programmeId && option.programmeName),
+    [profileOptionsQuery.data?.programmes],
   );
 
   const qualificationOptions = useMemo(
-    () => toQualificationEnrolmentSelectOptions(drilldownRows, programmeId),
-    [drilldownRows, programmeId],
+    () =>
+      (qualificationsQuery.data ?? [])
+        .map((qualification) => ({
+          qualificationId: String(qualification.qualificationId ?? '').trim(),
+          qualificationName: qualification.qualificationName?.trim() ?? '',
+        }))
+        .filter((option) => option.qualificationId && option.qualificationName),
+    [qualificationsQuery.data],
   );
 
-  const { createMutation } = useFormDistributionMutations();
+  const { createMutation, sendMutation } = useFormDistributionMutations();
 
   const selectedForm = (formsQuery.data ?? []).find((f) => f.id === formId);
   const formTitle = selectedForm?.title ?? 'Form';
@@ -150,21 +187,30 @@ export default function FormSubmissionsSendAdmin() {
       );
       return { total, email: total, sms: total };
     }
-    return { total: 4, email: 4, sms: 4 };
-  }, [audienceType, mergedExternal, channels, drilldownRows, programmeId, qualificationId]);
+    return { total: beneficiaryTotal, email: beneficiaryTotal, sms: beneficiaryTotal };
+  }, [audienceType, mergedExternal, channels, drilldownRows, programmeId, qualificationId, beneficiaryTotal]);
 
   const applyCsv = useCallback(() => {
     const result = parseExternalRecipientsCsv(csvText);
     setCsvErrors(result.errors);
   }, [csvText]);
 
+  const hasEligibleRecipients =
+    audienceType === 'all_beneficiaries'
+      ? beneficiaryCountQuery.isError || recipientPreview.total > 0
+      : audienceType === 'by_programme'
+        ? Boolean(programmeId && recipientPreview.total > 0)
+        : Boolean(
+            mergedExternal.length > 0 &&
+              ((channels.includes('email') && recipientPreview.email > 0) ||
+                (channels.includes('sms') && recipientPreview.sms > 0)),
+          );
+
   const canSend =
     formId &&
     createdByUserId &&
     channels.length > 0 &&
-    ((channels.includes('email') && recipientPreview.email > 0) ||
-      (channels.includes('sms') && recipientPreview.sms > 0)) &&
-    (audienceType !== 'by_programme' || (programmeId && recipientPreview.total > 0)) &&
+    hasEligibleRecipients &&
     (audienceType !== 'external' || mergedExternal.length > 0);
 
   const handleSend = async () => {
@@ -215,6 +261,7 @@ export default function FormSubmissionsSendAdmin() {
         externalRecipients: audienceType === 'external' ? mergedExternal : undefined,
         createdByUserId,
       });
+      await sendMutation.mutateAsync(result.distributionId);
       router.push(
         `/dashboard/admin/form-submissions/${encodeURIComponent(result.distributionId)}`,
       );
@@ -288,12 +335,9 @@ export default function FormSubmissionsSendAdmin() {
                     </label>
                     <select
                       value={programmeId}
-                      onChange={(e) => {
-                        setProgrammeId(e.target.value);
-                        setQualificationId(ALL_QUALIFICATIONS_VALUE);
-                      }}
+                      onChange={(e) => setProgrammeId(e.target.value)}
                       className={adminFormTheme.select}
-                      disabled={drilldownQuery.isLoading}
+                      disabled={profileOptionsQuery.isLoading}
                     >
                       <option value="">Select programme…</option>
                       {programmeOptions.map((p) => (
@@ -309,30 +353,14 @@ export default function FormSubmissionsSendAdmin() {
                       value={qualificationId}
                       onChange={(e) => setQualificationId(e.target.value)}
                       className={adminFormTheme.select}
-                      disabled={!programmeId || drilldownQuery.isLoading}
+                      disabled={qualificationsQuery.isLoading}
                     >
-                      {qualificationOptions.length === 0 ? (
-                        <option value="">Select programme first…</option>
-                      ) : (
-                        qualificationOptions.map((q) => {
-                          const count =
-                            programmeId && q.qualificationId
-                              ? getProgrammeAudienceRecipientCount(
-                                  drilldownRows,
-                                  programmeId,
-                                  q.qualificationId,
-                                )
-                              : programmeId
-                                ? getProgrammeAudienceRecipientCount(drilldownRows, programmeId)
-                                : 0;
-                          return (
-                            <option key={q.qualificationId || 'all'} value={q.qualificationId}>
-                              {q.qualificationName}
-                              {count > 0 ? ` (${count})` : ''}
-                            </option>
-                          );
-                        })
-                      )}
+                      <option value={ALL_QUALIFICATIONS_VALUE}>All qualifications in programme</option>
+                      {qualificationOptions.map((q) => (
+                        <option key={q.qualificationId} value={q.qualificationId}>
+                          {q.qualificationName}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -518,13 +546,22 @@ export default function FormSubmissionsSendAdmin() {
 
           <section className="rounded-xl border border-amber-100 bg-amber-50/50 p-4 text-sm text-slate-700">
             <p>
-              <span className="font-semibold">Recipients:</span> {recipientPreview.total} total
-              {channels.includes('email') ? ` · ${recipientPreview.email} with email` : ''}
-              {channels.includes('sms') ? ` · ${recipientPreview.sms} with SMS` : ''}
+              <span className="font-semibold">Recipients:</span>{' '}
+              {audienceType === 'all_beneficiaries'
+                ? beneficiaryCountQuery.isLoading
+                  ? 'Loading beneficiary count…'
+                  : `${recipientPreview.total} beneficiaries`
+                : `${recipientPreview.total} total`}
+              {audienceType === 'external' && channels.includes('email')
+                ? ` · ${recipientPreview.email} with email`
+                : ''}
+              {audienceType === 'external' && channels.includes('sms')
+                ? ` · ${recipientPreview.sms} with SMS`
+                : ''}
             </p>
-            {audienceType === 'all_beneficiaries' ? (
+            {audienceType === 'all_beneficiaries' && beneficiaryCountQuery.isError ? (
               <p className="mt-1 text-xs text-slate-500">
-                Final counts are resolved on the server when the API is available.
+                Could not load the beneficiary count. The server will still resolve recipients when sending.
               </p>
             ) : null}
             {audienceType === 'by_programme' && programmeId && recipientPreview.total === 0 ? (
@@ -543,12 +580,12 @@ export default function FormSubmissionsSendAdmin() {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              disabled={!canSend || createMutation.isPending}
+              disabled={!canSend || createMutation.isPending || sendMutation.isPending}
               onClick={() => void handleSend()}
               className={adminFormTheme.btnPrimary}
             >
               <FaPaperPlane />
-              {createMutation.isPending ? 'Sending…' : 'Send notifications'}
+              {createMutation.isPending || sendMutation.isPending ? 'Sending…' : 'Send notifications'}
             </button>
             <Link href="/dashboard/admin/form-submissions" className={adminFormTheme.btnSecondary}>
               Cancel

@@ -6,6 +6,7 @@ import {
   listFormDistributions,
   retryAllFailedFormDistributionNotifications,
   retryFormDistributionNotification,
+  sendFormDistribution,
 } from '@/api/formSubmissions';
 import type {
   FormDistributionCreatePayload,
@@ -88,5 +89,15 @@ export function useFormDistributionMutations() {
     },
   });
 
-  return { createMutation, retryOneMutation, retryAllMutation };
+  const sendMutation = useMutation({
+    mutationFn: (distributionId: string) => sendFormDistribution(distributionId),
+    onSuccess: (_data, distributionId) => {
+      queryClient.invalidateQueries({ queryKey: formSubmissionKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: formSubmissionKeys.distribution(distributionId),
+      });
+    },
+  });
+
+  return { createMutation, retryOneMutation, retryAllMutation, sendMutation };
 }

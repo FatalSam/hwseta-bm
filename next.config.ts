@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const deployTarget = (process.env.NEXT_OUTPUT || "").toLowerCase();
-const isStaticExport = deployTarget === "export" || deployTarget === "static" || deployTarget === "shared";
+const isVercel = process.env.VERCEL === "1";
+const isStaticExport = !isVercel && (deployTarget === "export" || deployTarget === "static" || deployTarget === "shared");
 
 const nextConfig: NextConfig = {
   /* config options here */

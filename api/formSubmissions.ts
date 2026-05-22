@@ -16,6 +16,7 @@ import type {
   FormDistributionNotificationListParams,
   FormDistributionNotificationRow,
   FormDistributionRow,
+  FormDistributionSendResult,
   PagedResult,
   ShortLinkResult,
 } from '@/types/formSubmissions';
@@ -40,10 +41,30 @@ function toNum(v: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function getErrorStatus(error: unknown): number | undefined {
+  if (axios.isAxiosError(error)) return error.response?.status;
+  if (error != null && typeof error === 'object') {
+    const status = (error as { status?: unknown }).status;
+    return typeof status === 'number' ? status : undefined;
+  }
+  return undefined;
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  if (axios.isAxiosError(error)) return error.code;
+  if (error != null && typeof error === 'object') {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === 'string' ? code : undefined;
+  }
+  return undefined;
+}
+
 function shouldUseMock(error: unknown): boolean {
-  if (!axios.isAxiosError(error)) return true;
-  const status = error.response?.status;
-  return status === 404 || status === 501 || status === 405 || !error.response;
+  const status = getErrorStatus(error);
+  if (status != null) return status === 404 || status === 501 || status === 405;
+
+  const code = getErrorCode(error);
+  return code === 'ERR_NETWORK' || code === 'ECONNABORTED';
 }
 
 function unwrapPaged<T>(data: unknown, normalizer: (raw: unknown) => T | null): PagedResult<T> {
@@ -177,6 +198,35 @@ export async function getFormDistribution(distributionId: string): Promise<FormD
   }
 }
 
+function normalizeSendResult(data: unknown, distributionId: string): FormDistributionSendResult {
+  const o = asObject(data) ?? {};
+  return {
+    distributionId: toStr(o.distributionId ?? o.DistributionId) || distributionId,
+    processedCount: toNum(o.processedCount ?? o.ProcessedCount),
+    sentCount: toNum(o.sentCount ?? o.SentCount),
+    failedCount: toNum(o.failedCount ?? o.FailedCount),
+    pendingCount: toNum(o.pendingCount ?? o.PendingCount),
+  };
+}
+
+export async function sendFormDistribution(distributionId: string): Promise<FormDistributionSendResult> {
+  try {
+    const { data } = await apiClient.post(
+      `${MANAGE_DIST}/${encodeURIComponent(distributionId)}/send`,
+    );
+    return normalizeSendResult(data, distributionId);
+  } catch (e) {
+    if (!shouldUseMock(e)) throw e;
+    return {
+      distributionId,
+      processedCount: 0,
+      sentCount: 0,
+      failedCount: 0,
+      pendingCount: 0,
+    };
+  }
+}
+
 export async function listFormDistributionNotifications(
   distributionId: string,
   params: FormDistributionNotificationListParams,
@@ -214,16 +264,21 @@ export async function retryFormDistributionNotification(
 
 export async function retryAllFailedFormDistributionNotifications(
   distributionId: string,
-): Promise<{ queuedCount: number }> {
+): Promise<FormDistributionSendResult> {
   try {
     const { data } = await apiClient.post(
       `${MANAGE_DIST}/${encodeURIComponent(distributionId)}/notifications/retry-failed`,
     );
-    const o = asObject(data) ?? {};
-    return { queuedCount: toNum(o.queuedCount ?? o.QueuedCount) };
+    return normalizeSendResult(data, distributionId);
   } catch (e) {
     if (!shouldUseMock(e)) throw e;
-    return { queuedCount: mockRetryAllFailed(distributionId) };
+    return {
+      distributionId,
+      processedCount: mockRetryAllFailed(distributionId),
+      sentCount: 0,
+      failedCount: 0,
+      pendingCount: 0,
+    };
   }
 }
 

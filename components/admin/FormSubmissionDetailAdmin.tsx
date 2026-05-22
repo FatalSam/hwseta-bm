@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
-import { FaArrowLeft, FaRedo } from 'react-icons/fa';
+import { FaArrowLeft, FaPaperPlane, FaRedo } from 'react-icons/fa';
 import { adminFormTheme } from '@/components/admin/adminFormTheme';
 import { buildPublicFormPath, getAppBaseUrl } from '@/lib/appBaseUrl';
 import { formatProgrammeAudienceSummary } from '@/lib/programme-enrolments-drilldown';
@@ -52,6 +52,8 @@ export default function FormSubmissionDetailAdmin({ distributionId }: { distribu
   const [channel, setChannel] = useState('');
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
+  const [sentFrom, setSentFrom] = useState('');
+  const [sentTo, setSentTo] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
 
   const notifParams = useMemo<FormDistributionNotificationListParams>(
@@ -61,13 +63,15 @@ export default function FormSubmissionDetailAdmin({ distributionId }: { distribu
       channel: (channel || null) as NotificationChannel | null,
       status: (status || null) as NotificationStatus | null,
       search: search.trim() || null,
+      sentFrom: sentFrom || null,
+      sentTo: sentTo || null,
     }),
-    [page, pageSize, channel, status, search],
+    [page, pageSize, channel, status, search, sentFrom, sentTo],
   );
 
   const distQuery = useFormDistributionDetail(distributionId);
   const notifQuery = useFormDistributionNotifications(distributionId, notifParams);
-  const { retryOneMutation, retryAllMutation } = useFormDistributionMutations();
+  const { retryOneMutation, retryAllMutation, sendMutation } = useFormDistributionMutations();
 
   const dist = distQuery.data;
   const rows = notifQuery.data?.items ?? [];
@@ -94,6 +98,16 @@ export default function FormSubmissionDetailAdmin({ distributionId }: { distribu
     setActionError(null);
     try {
       await retryAllMutation.mutateAsync(distributionId);
+      refetchAll();
+    } catch (e) {
+      setActionError(apiErr(e));
+    }
+  };
+
+  const handleSendPending = async () => {
+    setActionError(null);
+    try {
+      await sendMutation.mutateAsync(distributionId);
       refetchAll();
     } catch (e) {
       setActionError(apiErr(e));
@@ -157,6 +171,15 @@ export default function FormSubmissionDetailAdmin({ distributionId }: { distribu
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
+              onClick={() => void handleSendPending()}
+              disabled={sendMutation.isPending || dist.pendingCount === 0}
+              className={adminFormTheme.btnPrimary}
+            >
+              <FaPaperPlane className={sendMutation.isPending ? 'animate-pulse' : ''} />
+              {sendMutation.isPending ? 'Sending…' : 'Send pending'}
+            </button>
+            <button
+              type="button"
               onClick={refetchAll}
               disabled={isFetching}
               className={adminFormTheme.btnSecondary}
@@ -175,7 +198,7 @@ export default function FormSubmissionDetailAdmin({ distributionId }: { distribu
           </div>
         </div>
 
-        <div className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-3">
+        <div className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <label className={adminFormTheme.label}>Channel</label>
             <select
@@ -219,6 +242,30 @@ export default function FormSubmissionDetailAdmin({ distributionId }: { distribu
                 setPage(1);
               }}
               placeholder="Name, email, phone…"
+              className={adminFormTheme.input}
+            />
+          </div>
+          <div>
+            <label className={adminFormTheme.label}>Sent from</label>
+            <input
+              type="date"
+              value={sentFrom}
+              onChange={(e) => {
+                setSentFrom(e.target.value);
+                setPage(1);
+              }}
+              className={adminFormTheme.input}
+            />
+          </div>
+          <div>
+            <label className={adminFormTheme.label}>Sent to</label>
+            <input
+              type="date"
+              value={sentTo}
+              onChange={(e) => {
+                setSentTo(e.target.value);
+                setPage(1);
+              }}
               className={adminFormTheme.input}
             />
           </div>
