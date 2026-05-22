@@ -4,24 +4,56 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-export default function About() {
-    const [activeIndex, setActiveIndex] = useState(1);
+const ABOUT_TABS = [
+    {
+        id: 'mission',
+        label: 'Mission',
+        content:
+            'The Health and Welfare Sector Education and Training Authority (HWSETA) endeavours to create an integrated approach to the development and provision of appropriately skilled health and social development workers, to render quality services comparable to world class standards.',
+    },
+    {
+        id: 'vision',
+        label: 'Vision',
+        content:
+            'The creation of a skilled workforce for the health and social development needs of all South Africans.',
+    },
+    {
+        id: 'credo',
+        label: 'Our Credo',
+        content:
+            'That in meeting the needs of creating a skilled workforce for the health and social development sectors in South Africa, and all others who use our services, everything we do, consistently, must be high quality, within Ethical boundaries. This commitment extends to everything we do to bring our services to the people who use them.',
+    },
+    {
+        id: 'values',
+        label: 'Values',
+        intro: 'The HWSETA holds dear the following core values:',
+        items: [
+            'Service Excellence',
+            'Transformation',
+            'Transparency',
+            'Integrity',
+            'Respect',
+            'Fairness',
+            'Accountability',
+        ],
+    },
+] as const;
 
-    const tabContent: Record<number, string> = {
-        1: "Our mission is to give beneficiaries a simple, secure entry point: register with verified details, sign in with email, and reach tools that support monitoring and compliance.",
-        2: "We aim for a clear digital experience aligned with HWSETA processes so beneficiaries spend less time on admin and more time on their learning and development journey.",
-        3: "We value clarity, security, and respect for your data. Authentication follows the HWSETA Beneficiary API rules for passwords and contact information.",
-    };
+type AboutTabId = (typeof ABOUT_TABS)[number]['id'];
+
+export default function About() {
+    const [activeTab, setActiveTab] = useState<AboutTabId>('mission');
+    const activeContent = ABOUT_TABS.find((tab) => tab.id === activeTab);
 
     return (
-        <section className="py-16 sm:py-20">
+        <section className="pt-16 sm:pt-20 pb-12 sm:pb-14">
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
                 <div className="flex flex-col lg:flex-row gap-10 lg:gap-14 items-stretch">
                     {/* Left: Image */}
                     <div className="relative w-full lg:w-1/2 flex-shrink-0 overflow-hidden rounded-2xl shadow-lg border border-slate-100">
                         <Image
-                            src="/images/thrive_biz_hub.webp"
-                            alt="HWSETABeneficiaryHub team"
+                            src="/images/about-beneficiaries.png"
+                            alt="HWSETA beneficiaries at a programme workshop"
                             width={600}
                             height={400}
                             className="object-cover w-full h-full min-h-[280px] sm:min-h-[340px]"
@@ -37,7 +69,7 @@ export default function About() {
                                 Built for HWSETA beneficiaries
                             </h2>
                             <p className="text-slate-600 text-sm sm:text-base mb-6">
-                                This site lets beneficiaries register and sign in against the HWSETA API, then opens a dedicated dashboard for monitoring and future programme tools.
+                                This platform enables beneficiaries to register and maintain their profiles, record programme participation, access messages, submit complaints, and complete surveys.
                             </p>
                             <div className="flex flex-wrap gap-4 mb-6">
                                 <a href="tel:0116076900" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-hwseta-green transition-colors">
@@ -54,20 +86,31 @@ export default function About() {
                                 </a>
                             </div>
                             {/* Tabs */}
-                            <div className="flex gap-1 p-1 rounded-xl bg-slate-100/80 border border-slate-100 mb-4">
-                                {([1, 2, 3] as const).map((idx) => (
+                            <div className="flex flex-wrap gap-1 p-1 rounded-xl bg-slate-100/80 border border-slate-100 mb-4">
+                                {ABOUT_TABS.map((tab) => (
                                     <button
-                                        key={idx}
+                                        key={tab.id}
                                         type="button"
-                                        onClick={() => setActiveIndex(idx)}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition ${activeIndex === idx ? 'bg-white text-hwseta-green shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'}`}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`flex-1 min-w-[5.5rem] py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-semibold transition ${activeTab === tab.id ? 'bg-white text-hwseta-green shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'}`}
                                     >
-                                        {idx === 1 ? 'Mission' : idx === 2 ? 'Vision' : 'Values'}
+                                        {tab.label}
                                     </button>
                                 ))}
                             </div>
                             <div className="min-h-[88px]">
-                                <p className="text-slate-600 text-sm leading-relaxed">{tabContent[activeIndex]}</p>
+                                {activeContent && 'content' in activeContent ? (
+                                    <p className="text-slate-600 text-sm leading-relaxed">{activeContent.content}</p>
+                                ) : activeContent && 'items' in activeContent ? (
+                                    <div className="text-slate-600 text-sm leading-relaxed">
+                                        <p>{activeContent.intro}</p>
+                                        <ul className="mt-3 list-disc space-y-1 pl-5">
+                                            {activeContent.items.map((item) => (
+                                                <li key={item}>{item}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ) : null}
                             </div>
                             <Link
                                 href="/signup"

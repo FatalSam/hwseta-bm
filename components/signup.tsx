@@ -9,6 +9,7 @@ import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { FormToggleSwitch } from '@/components/admin/FormToggleSwitch';
+import TermsModal from '@/components/legal/TermsModal';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SA_PHONE_REGEX = /^(?:\+27|0)[0-9]{9}$/;
@@ -118,6 +119,7 @@ export default function Signup() {
     const [passwordError, setPasswordError] = useState<string | null>(null);
     const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
     const [termsAccepted, setTermsAccepted] = useState(false);
+    const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -313,6 +315,7 @@ export default function Signup() {
     }
 
     return (
+        <>
         <section className="py-12 sm:py-16 md:py-20">
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
                 <div className="max-w-4xl mx-auto">
@@ -420,7 +423,18 @@ export default function Signup() {
                             <FormToggleSwitch
                                 checked={termsAccepted}
                                 onChange={setTermsAccepted}
-                                label="I agree to the terms and conditions"
+                                label={
+                                    <>
+                                        I agree to the{' '}
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsTermsModalOpen(true)}
+                                            className="text-hwseta-green underline underline-offset-2 transition-colors hover:text-hwseta-green-dark"
+                                        >
+                                            terms and conditions
+                                        </button>
+                                    </>
+                                }
                                 description="You must accept before creating an account."
                             />
 
@@ -436,5 +450,11 @@ export default function Signup() {
                 </div>
             </div>
         </section>
+        <TermsModal
+            open={isTermsModalOpen}
+            onClose={() => setIsTermsModalOpen(false)}
+            onAccept={() => setTermsAccepted(true)}
+        />
+        </>
     );
 }

@@ -5,7 +5,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { Dialog, Transition } from '@headlessui/react';
-import { FaEdit, FaFileExcel, FaPlus, FaRedo, FaSearch, FaUsers } from 'react-icons/fa';
+import { FaEdit, FaFileExcel, FaPlus, FaSearch, FaUsers } from 'react-icons/fa';
 import { adminFormTheme } from '@/components/admin/adminFormTheme';
 import { SyncfusionIsoDatePicker } from '@/components/ui/SyncfusionIsoDatePicker';
 import apiClient from '@/ultis/apiClient';
@@ -17,6 +17,10 @@ import {
 import type { AdminBeneficiary, AdminBeneficiarySavePayload } from '@/types/admin-beneficiaries';
 
 type FilterOption = { id: string; name: string };
+
+function normalizeProvinceName(value: unknown): string {
+  return String(value ?? '').trim().toLowerCase();
+}
 
 function cn(...c: (string | boolean | undefined)[]) {
   return c.filter(Boolean).join(' ');
@@ -63,9 +67,7 @@ export default function BeneficiariesAdmin() {
   const [registrationFrom, setRegistrationFrom] = useState('');
   const [registrationTo, setRegistrationTo] = useState('');
   const [selectedEmployerId, setSelectedEmployerId] = useState('');
-  const [selectedEmployerName, setSelectedEmployerName] = useState('');
   const [selectedTrainingProviderId, setSelectedTrainingProviderId] = useState('');
-  const [selectedTrainingProviderName, setSelectedTrainingProviderName] = useState('');
   const [selectedProvinceId, setSelectedProvinceId] = useState('');
   const [selectedProvinceName, setSelectedProvinceName] = useState('');
 
@@ -80,6 +82,8 @@ export default function BeneficiariesAdmin() {
   const query = useMemo(() => {
     const from = registrationFrom.trim();
     const to = registrationTo.trim();
+    const provinceId = selectedProvinceId.trim();
+    const province = selectedProvinceName.trim();
     return {
       page,
       pageSize,
@@ -87,10 +91,9 @@ export default function BeneficiariesAdmin() {
       ...(from ? { registrationFrom: from } : {}),
       ...(to ? { registrationTo: to } : {}),
       employerId: selectedEmployerId.trim() || null,
-      employerName: selectedEmployerName.trim() || null,
       trainingProviderId: selectedTrainingProviderId.trim() || null,
-      trainingProviderName: selectedTrainingProviderName.trim() || null,
-      province: selectedProvinceName.trim() || null,
+      ...(provinceId ? { provinceId } : {}),
+      ...(province ? { province } : {}),
     };
   }, [
     page,
@@ -99,16 +102,21 @@ export default function BeneficiariesAdmin() {
     registrationTo,
     search,
     selectedEmployerId,
-    selectedEmployerName,
+    selectedProvinceId,
     selectedProvinceName,
     selectedTrainingProviderId,
-    selectedTrainingProviderName,
   ]);
 
-  const { data, isLoading, error, refetch, isFetching } = useAdminBeneficiariesList(query);
+  const { data, isLoading, error } = useAdminBeneficiariesList(query);
   const { createMutation } = useAdminBeneficiaryMutations();
-  const rows = data?.items ?? [];
-  const totalCount = data?.totalCount ?? 0;
+  const apiRows = data?.items ?? [];
+  const provinceFilter = selectedProvinceName.trim();
+  const rows = useMemo(() => {
+    if (!provinceFilter) return apiRows;
+    const target = normalizeProvinceName(provinceFilter);
+    return apiRows.filter((row) => normalizeProvinceName(row.physicalAddressProvince ?? row.province) === target);
+  }, [apiRows, provinceFilter]);
+  const totalCount = provinceFilter && rows.length !== apiRows.length ? rows.length : (data?.totalCount ?? 0);
   const totalPages = data?.totalPages ?? 1;
   const gridPageStart = (page - 1) * pageSize;
 
@@ -157,8 +165,8 @@ export default function BeneficiariesAdmin() {
         setProvinceOptions(
           provinceRows
             .map((p: Record<string, unknown>) => ({
-              id: String(p.id ?? p.provinceId ?? p.provinceID ?? '').trim(),
-              name: String(p.name ?? p.provinceName ?? '').trim(),
+              id: String(p.id ?? p.provinceId ?? p.provinceID ?? p.ProvinceID ?? '').trim(),
+              name: String(p.name ?? p.provinceName ?? p.province ?? p.Province ?? '').trim(),
             }))
             .filter((o) => o.id && o.name),
         );
@@ -265,54 +273,37 @@ export default function BeneficiariesAdmin() {
         <section className="p-5">
           <div className="rounded-3xl border border-slate-200 bg-white p-5">
             <div className="space-y-3">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:max-w-3xl">
-                  <p className="text-[11px] text-slate-500 sm:col-span-2">
-                    Leave registration dates blank to list all beneficiaries; set a range to narrow results.
-                  </p>
-                  <label className="block">
-                    <span className={adminFormTheme.label}>Registration from</span>
-                    <SyncfusionIsoDatePicker
-                      value={registrationFrom}
-                      onChange={(iso) => {
-                        setRegistrationFrom(iso);
-                        setPage(1);
-                      }}
-                    />
-                  </label>
-                  <label className="block">
-                    <span className={adminFormTheme.label}>Registration to</span>
-                    <SyncfusionIsoDatePicker
-                      value={registrationTo}
-                      onChange={(iso) => {
-                        setRegistrationTo(iso);
-                        setPage(1);
-                      }}
-                    />
-                  </label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => refetch()}
-                    disabled={isFetching}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    <FaRedo className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')} />
-                    Refresh
-                  </button>
-                </div>
-              </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <p className="text-[11px] text-slate-500 md:col-span-2 xl:col-span-3">
+                  Leave registration dates blank to list all beneficiaries; set a range to narrow results.
+                </p>
+                <label className="block">
+                  <span className={adminFormTheme.label}>Registration from</span>
+                  <SyncfusionIsoDatePicker
+                    value={registrationFrom}
+                    onChange={(iso) => {
+                      setRegistrationFrom(iso);
+                      setPage(1);
+                    }}
+                  />
+                </label>
+                <label className="block">
+                  <span className={adminFormTheme.label}>Registration to</span>
+                  <SyncfusionIsoDatePicker
+                    value={registrationTo}
+                    onChange={(iso) => {
+                      setRegistrationTo(iso);
+                      setPage(1);
+                    }}
+                  />
+                </label>
+                <span className="hidden xl:block" aria-hidden="true" />
                 <label className="block">
                   <span className={adminFormTheme.label}>Employer</span>
                   <select
                     value={selectedEmployerId}
                     onChange={(e) => {
-                      const id = e.target.value;
-                      const selected = employerOptions.find((x) => x.id === id);
-                      setSelectedEmployerId(id);
-                      setSelectedEmployerName(selected?.name ?? '');
+                      setSelectedEmployerId(e.target.value);
                       setPage(1);
                     }}
                     className={adminFormTheme.select}
@@ -330,10 +321,7 @@ export default function BeneficiariesAdmin() {
                   <select
                     value={selectedTrainingProviderId}
                     onChange={(e) => {
-                      const id = e.target.value;
-                      const selected = trainingProviderOptions.find((x) => x.id === id);
-                      setSelectedTrainingProviderId(id);
-                      setSelectedTrainingProviderName(selected?.name ?? '');
+                      setSelectedTrainingProviderId(e.target.value);
                       setPage(1);
                     }}
                     className={adminFormTheme.select}
@@ -438,16 +426,31 @@ export default function BeneficiariesAdmin() {
                         <td colSpan={9} className="px-5 py-16 text-center text-gray-500">No beneficiaries found.</td>
                       </tr>
                     ) : (
-                      rows.map((row, index) => (
+                      rows.map((row, index) => {
+                        const displayName = String(
+                          row.beneficiaryName ??
+                          [row.firstName, row.lastName].filter(Boolean).join(' '),
+                        ).trim();
+                        const canEdit = row.beneficiaryId != null;
+
+                        return (
                         <tr
                           key={String(row.beneficiaryId ?? `${row.firstName}-${row.lastName}`)}
                           className={cn(index % 2 === 0 ? 'bg-white hover:bg-emerald-50/40' : 'bg-slate-50/50 hover:bg-emerald-50/40')}
                         >
-                          <td className="px-5 py-4 font-semibold text-gray-900">
-                            {String(
-                              row.beneficiaryName ??
-                              [row.firstName, row.lastName].filter(Boolean).join(' '),
-                            ).trim() || '—'}
+                          <td className="px-5 py-4">
+                            {canEdit && displayName ? (
+                              <button
+                                type="button"
+                                onClick={() => openEditPage(row)}
+                                className="font-semibold text-hwseta-green hover:underline"
+                                title="Edit beneficiary"
+                              >
+                                {displayName}
+                              </button>
+                            ) : (
+                              <span className="font-semibold text-gray-900">{displayName || '—'}</span>
+                            )}
                           </td>
                           <td className="px-5 py-4 text-gray-600">{row.idNumber_Passport?.trim() || '—'}</td>
                           <td className="px-5 py-4 text-gray-600">
@@ -484,7 +487,8 @@ export default function BeneficiariesAdmin() {
                             </div>
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

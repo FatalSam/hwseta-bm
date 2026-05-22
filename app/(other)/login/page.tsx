@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Breadcrumb from "@/components/breadcrumb";
 import Login from "@/components/login";
-import Subscribe from "@/components/subscribe";
 import { useAuth } from '@/hooks/useAuth';
 import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 import { useAuthStore } from '@/store/authStore';
@@ -128,7 +127,6 @@ function LoginPageContent() {
                 onShowPasswordToggle={handleShowPasswordToggle}
                 onSubmit={handleSubmit}
             />
-            <Subscribe />
         </div>
     );
 }

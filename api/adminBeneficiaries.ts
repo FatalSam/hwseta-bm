@@ -45,10 +45,40 @@ function normalizeBeneficiary(raw: unknown): AdminBeneficiary {
   };
 }
 
+function buildListQueryParams(params: AdminBeneficiaryListParams): Record<string, string | number> {
+  const out: Record<string, string | number> = {
+    page: params.page ?? 1,
+    pageSize: params.pageSize ?? 25,
+  };
+
+  const search = params.search?.trim();
+  if (search) out.search = search;
+
+  const registrationFrom = params.registrationFrom?.trim();
+  if (registrationFrom) out.registrationFrom = registrationFrom;
+
+  const registrationTo = params.registrationTo?.trim();
+  if (registrationTo) out.registrationTo = registrationTo;
+
+  const employerId = params.employerId != null ? String(params.employerId).trim() : '';
+  if (employerId) out.employerId = employerId;
+
+  const trainingProviderId = params.trainingProviderId != null ? String(params.trainingProviderId).trim() : '';
+  if (trainingProviderId) out.trainingProviderId = trainingProviderId;
+
+  const provinceId = params.provinceId != null ? String(params.provinceId).trim() : '';
+  if (provinceId) out.provinceId = provinceId;
+
+  const province = params.province?.trim();
+  if (province) out.province = province;
+
+  return out;
+}
+
 export async function listAdminBeneficiaries(
   params: AdminBeneficiaryListParams,
 ): Promise<AdminBeneficiaryPagedResult> {
-  const { data } = await apiClient.get(BASE, { params });
+  const { data } = await apiClient.get(BASE, { params: buildListQueryParams(params) });
   const o = asObject(data);
 
   const page = toNumber(params.page, 1);

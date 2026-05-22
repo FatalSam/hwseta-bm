@@ -980,14 +980,7 @@ export default function BeneficiaryComplaintsClient({
             </>
           )}
         </header>
-      ) : (
-        <header className="mb-4">
-          <h2 className="text-lg font-semibold text-slate-900">Complaints</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Review complaints and the activity timeline. Matches the beneficiary view at their Complaints page.
-          </p>
-        </header>
-      )}
+      ) : null}
 
       <div
         className={cn(
@@ -995,14 +988,14 @@ export default function BeneficiaryComplaintsClient({
           isEmbed ? 'rounded-xl shadow-sm' : 'rounded-[1.75rem] shadow-[0_16px_48px_rgba(15,23,42,0.08)]',
         )}
       >
-        {isAdmin ? (
+        {isAdmin && !isEmbed ? (
           <div className="border-b border-slate-200 bg-slate-50/90 px-4 py-3 sm:px-6">
             <p className="text-sm font-semibold text-[#124a3f]">This beneficiary&apos;s complaints</p>
             <p className="mt-0.5 text-xs text-slate-600">
               New complaints are raised by the beneficiary. You can add messages to existing cases below.
             </p>
           </div>
-        ) : (
+        ) : !isAdmin ? (
           <div className="flex border-b border-slate-200 bg-slate-50/90" role="tablist" aria-label="Complaints sections">
             <button
               type="button"
@@ -1037,7 +1030,7 @@ export default function BeneficiaryComplaintsClient({
               Raise a complaint
             </button>
           </div>
-        )}
+        ) : null}
 
         <div
           id="panel-my-complaints"
@@ -1064,7 +1057,7 @@ export default function BeneficiaryComplaintsClient({
         <BeneficiaryComplaintsTable
           title={isAdmin ? 'Complaints' : undefined}
           subtitle={
-            isAdmin
+            isAdmin && !isEmbed
               ? 'Complaints and latest activity for this beneficiary. Scroll the table when there are many rows.'
               : undefined
           }

@@ -6,18 +6,10 @@ import Image from 'next/image';
 
 const slides = [
   {
-    image: '/images/hero1.png',
-    title: 'Beneficiary monitoring',
-    description:
-      'Register or sign in to access your HWSETA beneficiary dashboard and stay on top of your programme journey.',
-    button: 'Register',
-    link: '/signup',
-  },
-  {
     image: '/images/hero2.png',
     title: 'Secure access',
     description:
-      'Use your email and password to sign in. Your account is linked to the Beneficiary role in HWSETA systems.',
+      'Register or sign in to access your HWSETA beneficiary profile and stay on top of your programme journey.',
     button: 'Sign in',
     link: '/login',
   },

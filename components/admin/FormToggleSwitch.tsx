@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 /** Copy aligned with manage-mybeneficiary “Active” toggle helper text. */
@@ -10,7 +10,7 @@ export const DEFAULT_ACTIVE_DESCRIPTION =
 type Props = {
   checked: boolean;
   onChange: (next: boolean) => void;
-  label: string;
+  label: ReactNode;
   description?: string;
   className?: string;
   /** Tighter card for stacked lists (e.g. document type pickers). */

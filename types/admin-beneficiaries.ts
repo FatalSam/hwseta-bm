@@ -40,6 +40,7 @@ export interface AdminBeneficiaryListParams {
   search?: string | null;
   employerId?: AdminEntityId | null;
   trainingProviderId?: AdminEntityId | null;
+  provinceId?: AdminEntityId | null;
   province?: string | null;
   municipality?: string | null;
   area?: string | null;

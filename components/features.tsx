@@ -30,16 +30,16 @@ const cards = [
 
 export default function Features() {
   return (
-    <section className="py-16 sm:py-20">
+    <section className="pt-12 sm:pt-14 pb-16 sm:pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="text-center max-w-2xl mx-auto mb-12">
+        <div className="mx-auto mb-12 sm:mb-14 max-w-4xl text-center">
           <p className="text-xs font-semibold tracking-[0.18em] uppercase text-hwseta-green mb-2">
             How it works
           </p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 leading-tight mb-3">
             Register, sign in, and open your dashboard
           </h2>
-          <p className="text-slate-600 text-base sm:text-lg">
+          <p className="mx-auto max-w-3xl text-slate-600 text-sm sm:text-base leading-relaxed">
             HWSETA Beneficiary Hub uses HWSETA authentication: register once, then sign in with your email.
           </p>
         </div>

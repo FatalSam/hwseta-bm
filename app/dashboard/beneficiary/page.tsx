@@ -576,10 +576,10 @@ export default function BeneficiaryDashboardPage() {
           />
           <div className="relative">
             <h1 className="bg-gradient-to-r from-slate-900 via-slate-800 to-[#124a3f] bg-clip-text text-2xl font-bold tracking-tight text-transparent sm:text-3xl">
-              Welcome back{user?.firstName ? `, ${user.firstName}` : ''}
+              Welcome{user?.firstName ? ` ${user.firstName}` : ''}
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              Programme links, messages, and complaints update from the same data as your beneficiary tools.
+            <p className="mt-2 whitespace-nowrap text-sm leading-relaxed text-slate-600 sm:text-base">
+              Everything you need your profile, programmes, messages, complaints, and support all in one place.
             </p>
           </div>
         </section>
