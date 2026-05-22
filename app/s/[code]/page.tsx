@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { resolveShortLink } from '@/api/formSubmissions';
 
@@ -40,9 +41,9 @@ export default function ShortLinkRedirectPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
         <p className="text-center text-sm text-slate-600">{error}</p>
-        <a href="/" className="mt-4 text-sm font-semibold text-hwseta-green hover:underline">
+        <Link href="/" className="mt-4 text-sm font-semibold text-hwseta-green hover:underline">
           Go to home
-        </a>
+        </Link>
       </div>
     );
   }
