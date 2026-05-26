@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
+import ThemeToggle from '@/components/theme-toggle';
 
 const hubTitleClass =
   'font-bold uppercase tracking-wide text-hwseta-green text-center text-base sm:text-lg md:text-xl lg:text-2xl xl:text-[1.65rem] leading-tight';
@@ -138,6 +139,7 @@ const Header = () => {
               </Link>
             </nav>
             {authLinks}
+            <ThemeToggle />
           </div>
         </div>
 
@@ -153,7 +155,7 @@ const Header = () => {
             </Link>
           </div>
           <div className="pt-3 pb-4 px-2 border-t border-slate-100">
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               {isAuthenticated && isBeneficiary() ? (
                 <Link
                   href={dashboardHref}
@@ -180,6 +182,7 @@ const Header = () => {
                   </Link>
                 </>
               )}
+              <ThemeToggle />
             </div>
           </div>
         </div>

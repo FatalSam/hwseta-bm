@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Breadcrumb from '@/components/breadcrumb';
 import { getPublicForm, submitPublicForm } from '@/api/formBuilder';
 import { PublicForm } from '@/components/form-builder';
@@ -32,7 +32,10 @@ function PublicFormShell({ children }: { children: ReactNode }) {
 
 export default function PublicFormPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const formId = typeof params.formId === 'string' ? params.formId : '';
+  const distributionId = searchParams.get('d')?.trim() || null;
+  const notificationId = searchParams.get('n')?.trim() || null;
   const { token } = useAuthStore();
   const [title, setTitle] = useState<string | null>(null);
   const [description, setDescription] = useState<string | null>(null);
@@ -94,9 +97,13 @@ export default function PublicFormPage() {
       await submitPublicForm(formId, {
         payload,
         createdByUserId,
+        distributionId,
+        notificationId,
+        formTitle: title ?? undefined,
+        settings: settings ?? undefined,
       });
     },
-    [createdByUserId, formId],
+    [createdByUserId, distributionId, formId, notificationId, settings, title],
   );
 
   if (loading) {

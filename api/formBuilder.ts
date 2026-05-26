@@ -1,5 +1,6 @@
 import axios from 'axios';
 import apiClient from '@/ultis/apiClient';
+import { mockRecordFormFeedback } from '@/data/mockFormFeedback';
 import { getDefaultSettings } from '@/lib/form-builder-defaults';
 import type { FormSettings } from '@/types/dynamicForm';
 
@@ -199,6 +200,10 @@ export async function getPublicForm(formId: string) {
 export type SubmitPublicFormBody = {
   payload: Record<string, unknown>;
   createdByUserId?: string | null;
+  distributionId?: string | null;
+  notificationId?: string | null;
+  formTitle?: string;
+  settings?: FormSettings;
 };
 
 function messageFromAxiosError(error: unknown): string | null {
@@ -213,16 +218,41 @@ function messageFromAxiosError(error: unknown): string | null {
   return null;
 }
 
+function shouldUseMockSubmit(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) {
+    const code = (error as { code?: string } | null)?.code;
+    return code === 'ERR_NETWORK' || code === 'ECONNABORTED';
+  }
+  const status = error.response?.status;
+  if (status != null) return status === 404 || status === 501 || status === 405;
+  return error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED';
+}
+
 export async function submitPublicForm(formId: string, body: SubmitPublicFormBody) {
-  const { createdByUserId, payload } = body;
+  const { createdByUserId, payload, distributionId, notificationId, formTitle, settings } = body;
   const json: Record<string, unknown> = { payload };
   if (createdByUserId !== undefined) {
     json.createdByUserId = createdByUserId;
   }
+  const distId = distributionId?.trim();
+  const notifId = notificationId?.trim();
+  if (distId) json.distributionId = distId;
+  if (notifId) json.notificationId = notifId;
   try {
     const response = await apiClient.post(`${PUBLIC}/${encodeURIComponent(formId)}/submit`, json);
     return response.data;
   } catch (e) {
+    if (shouldUseMockSubmit(e)) {
+      return mockRecordFormFeedback({
+        formId,
+        formTitle,
+        payload,
+        distributionId: distId || null,
+        notificationId: notifId || null,
+        createdByUserId: createdByUserId ?? null,
+        settings,
+      });
+    }
     const msg = messageFromAxiosError(e);
     if (msg) {
       throw new Error(msg);

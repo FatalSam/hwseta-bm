@@ -169,6 +169,12 @@ export default function FormSubmissionDetailAdmin({ distributionId }: { distribu
             </a>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/dashboard/admin/form-feedback?distributionId=${encodeURIComponent(distributionId)}`}
+              className={adminFormTheme.btnSecondary}
+            >
+              View feedback
+            </Link>
             <button
               type="button"
               onClick={() => void handleSendPending()}

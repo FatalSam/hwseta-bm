@@ -71,6 +71,7 @@ const ADMIN_TRAINING_PROVIDERS = `${ADMIN_BASE}/training-providers`;
 const ADMIN_EMPLOYERS = `${ADMIN_BASE}/employers`;
 const ADMIN_FORM_BUILDER = `${ADMIN_BASE}/form-builder`;
 const ADMIN_FORM_SUBMISSIONS = `${ADMIN_BASE}/form-submissions`;
+const ADMIN_FORM_FEEDBACK = `${ADMIN_BASE}/form-feedback`;
 const ADMIN_COMPLAINTS = `${ADMIN_BASE}/complaints`;
 const ADMIN_SETUP_BASE = `${ADMIN_BASE}/setup`;
 const ADMIN_SETUP_PROGRAMMES_SETUP = `${ADMIN_SETUP_BASE}/programmes-setup`;
@@ -149,7 +150,9 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       pathname.startsWith(`${ADMIN_FORM_BUILDER}/`) ||
       pathname === ADMIN_FORM_BUILDER ||
       pathname.startsWith(`${ADMIN_FORM_SUBMISSIONS}/`) ||
-      pathname === ADMIN_FORM_SUBMISSIONS
+      pathname === ADMIN_FORM_SUBMISSIONS ||
+      pathname.startsWith(`${ADMIN_FORM_FEEDBACK}/`) ||
+      pathname === ADMIN_FORM_FEEDBACK
     ) {
       setFormsOpen(true);
     } else {
@@ -262,7 +265,9 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       pathname === ADMIN_FORM_BUILDER ||
       pathname.startsWith(`${ADMIN_FORM_BUILDER}/`) ||
       pathname === ADMIN_FORM_SUBMISSIONS ||
-      pathname.startsWith(`${ADMIN_FORM_SUBMISSIONS}/`);
+      pathname.startsWith(`${ADMIN_FORM_SUBMISSIONS}/`) ||
+      pathname === ADMIN_FORM_FEEDBACK ||
+      pathname.startsWith(`${ADMIN_FORM_FEEDBACK}/`);
     return (
     <>
       <div
@@ -616,6 +621,17 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                           >
                             <InboxIcon className="h-5 w-5 shrink-0 text-slate-500 opacity-90 group-hover:opacity-100" aria-hidden />
                             {!collapsed && <span>Submissions</span>}
+                          </Link>
+                        </li>
+                        <li>
+                          <Link
+                            href={ADMIN_FORM_FEEDBACK}
+                            data-nav-item="forms-feedback"
+                            className={navLinkClass(ADMIN_FORM_FEEDBACK, collapsed, { exact: false })}
+                            aria-label={collapsed ? "Feedback" : undefined}
+                          >
+                            <ChatBubbleLeftRightIcon className="h-5 w-5 shrink-0 text-slate-500 opacity-90 group-hover:opacity-100" aria-hidden />
+                            {!collapsed && <span>Feedback</span>}
                           </Link>
                         </li>
                       </ul>

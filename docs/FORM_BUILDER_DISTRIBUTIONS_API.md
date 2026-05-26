@@ -28,7 +28,8 @@ Distributions should **reuse** org email/SMS configuration and provider adapters
 
 | In scope | Out of scope (v1) |
 |----------|-------------------|
-| Create distribution (audience + templates + channels) | Browsing submitted form **answers** in admin |
+| Create distribution (audience + templates + channels) | Edit/delete submitted responses in admin |
+| List/view form **responses** (feedback) in admin | |
 | Queue/send email and SMS per recipient | Org-wide saved template CRUD |
 | Short links for SMS | Click analytics dashboard |
 | List distributions (paged, filtered) | |
@@ -506,6 +507,9 @@ When implemented, wire in:
 | `retryFormDistributionNotification` | §7.5 |
 | `retryAllFailedFormDistributionNotifications` | §7.6 |
 | `resolveShortLink` (public) | §8.1 |
+| `api/formFeedback.ts` → `listFormFeedback` | §16.2 |
+| `getFormFeedback` | §16.3 |
+| `submitPublicForm` (`distributionId`, `notificationId`) | §16.4 |
 
 Normalize PascalCase/camelCase in the API module (same as `api/formBuilder.ts`).
 
@@ -547,3 +551,61 @@ Normalize PascalCase/camelCase in the API module (same as `api/formBuilder.ts`).
 | [FORM_SUBMISSIONS_FEATURE.md](./FORM_SUBMISSIONS_FEATURE.md) | UI routes, components, QA |
 | `api/formBuilder.ts` | Existing form CRUD/submit |
 | `docs/admin-email-forward.md` | Email send patterns |
+
+---
+
+## 16. Form responses (Feedback)
+
+Completed public form fills stored for admin review. Linked to distributions/notifications when `notificationId` is sent on submit.
+
+### 16.1 Table `HW_FormBuilderResponse`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `ResponseID` | `uniqueidentifier` PK | |
+| `FormID` | FK | |
+| `DistributionID` | FK null | |
+| `NotificationID` | FK null | Unique when set (one response per notification) |
+| `RecipientType` | `nvarchar(16)` | `beneficiary`, `external`, or empty → unknown |
+| `BeneficiaryID` | `uniqueidentifier` null | |
+| `FullName` | `nvarchar(200)` null | |
+| `Email` | `nvarchar(320)` null | |
+| `Cellphone` | `nvarchar(32)` null | |
+| `PayloadJson` | `nvarchar(max)` | Field answers |
+| `CreatedByUserId` | `uniqueidentifier` null | Optional logged-in submitter |
+| `SubmittedAt` | `datetime2` | UTC |
+
+**On submit:** if `notificationId` is provided, copy recipient from `HW_FormDistributionNotification`. Reject duplicate `notificationId` with `409` or upsert per product rule.
+
+### 16.2 List responses
+
+```
+GET /api/manage/form-builder/responses
+```
+
+**Query:** `page`, `pageSize`, `formId`, `distributionId`, `recipientType` (`beneficiary` \| `external`), `submittedFrom`, `submittedTo`, `search` (name, email, phone, form title).
+
+**Response `200`:** paged `items` with `responseId`, `formId`, `formTitle`, `distributionId`, `notificationId`, `recipientType`, `beneficiaryId`, `fullName`, `email`, `cellphone`, `submittedAt`, optional `answersSummary`.
+
+### 16.3 Get response detail
+
+```
+GET /api/manage/form-builder/responses/{responseId}
+```
+
+**Response `200`:** list fields plus `payload`, `settings` (form definition snapshot or live form settings), and/or `answers: [{ fieldId, label, value }]`.
+
+### 16.4 Extended public submit body
+
+`POST /api/form-builder/forms/{formId}/submit`:
+
+```json
+{
+  "payload": { "field_id": "answer" },
+  "createdByUserId": null,
+  "distributionId": "optional-guid",
+  "notificationId": "optional-guid"
+}
+```
+
+Validate notification belongs to form (and distribution if both provided). Public form URL: `?d={distributionId}&n={notificationId}`.

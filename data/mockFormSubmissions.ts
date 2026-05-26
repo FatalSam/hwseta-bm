@@ -419,6 +419,23 @@ function refreshDistributionAggregates(distributionId: string) {
         : 'Completed';
 }
 
+export function mockFindNotification(notificationId: string): {
+  notification: FormDistributionNotificationRow;
+  distribution: FormDistributionRow;
+} | null {
+  seedIfEmpty();
+  const id = notificationId.trim();
+  if (!id) return null;
+  for (const dist of distributions) {
+    const list = notificationsByDist[dist.distributionId] ?? [];
+    const notification = list.find((n) => n.notificationId === id);
+    if (notification) {
+      return { notification, distribution: dist };
+    }
+  }
+  return null;
+}
+
 export function mockResolveShortLink(code: string): ShortLinkResult | null {
   loadPersisted();
   return shortLinks[code] ?? null;

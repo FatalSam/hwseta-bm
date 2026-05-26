@@ -879,8 +879,8 @@
   z-index: 10050 !important;
 }
 
-/* System dark mode: follows the user's device/browser preference. */
-@media (prefers-color-scheme: dark) {
+/* Dark mode: toggled via `html.dark` (next-themes) or system preference when theme is "system". */
+.dark {
   :root {
     color-scheme: dark;
     --light-color: #0f172a;

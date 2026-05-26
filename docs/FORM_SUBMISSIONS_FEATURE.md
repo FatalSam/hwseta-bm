@@ -18,7 +18,7 @@ Admins build surveys/forms in **Form Builder**. They need to:
 4. Track each outbound notification (pending, sent, failed) and **retry** failures.
 5. Work end-to-end before all APIs exist, using placeholder endpoints that match the backend contract.
 
-This feature is **distribution / notification tracking**, not a UI to browse filled form answers (that is a separate future capability).
+This feature covers **distribution / notification tracking** (Submissions) and **completed form responses** (Feedback).
 
 ---
 
@@ -36,11 +36,12 @@ Replace the single sidebar item **Form builder** with a nested group:
 ```
 Forms
   ├── Builder      → /dashboard/admin/form-builder
-  └── Submissions  → /dashboard/admin/form-submissions
+  ├── Submissions  → /dashboard/admin/form-submissions
+  └── Feedback     → /dashboard/admin/form-feedback
 ```
 
 - Mirror the **Set Up** accordion pattern in `components/dashbaord-layout.tsx`.
-- Auto-expand **Forms** when the path starts with `/dashboard/admin/form-builder` or `/dashboard/admin/form-submissions`.
+- Auto-expand **Forms** when the path starts with `/dashboard/admin/form-builder`, `/dashboard/admin/form-submissions`, or `/dashboard/admin/form-feedback`.
 - **Builder** child link should **not** use `exact: true` so `/form-builder/new` and `/.../edit` stay active under Builder.
 
 Existing builder URLs stay unchanged.
@@ -52,6 +53,8 @@ Existing builder URLs stay unchanged.
 | `/dashboard/admin/form-submissions` | List distributions (past sends) + **Send form** |
 | `/dashboard/admin/form-submissions/new` | Compose: form, audience, channels, templates, send |
 | `/dashboard/admin/form-submissions/[distributionId]` | Per-recipient notification status, filters, retry |
+| `/dashboard/admin/form-feedback` | List completed form responses (beneficiaries + externals) |
+| `/dashboard/admin/form-feedback/[responseId]` | Response detail with labelled answers |
 
 ### 2.3 Public
 
@@ -293,18 +296,30 @@ flowchart TB
 6. Detail filters and pagination work.
 7. Retry single and retry all failed update UI state.
 8. With API offline, mock layer keeps flows usable.
+9. Public submit with `?d=` and `?n=` attributes response to notification recipient.
+10. **Feedback** list/detail shows beneficiary and external rows; **View feedback** from distribution detail filters by `distributionId`.
 
 ---
 
-## 8. Out of scope (this release)
+## 8. Feedback (completed responses)
 
-- Admin grid of **completed form responses** (answers from `submitPublicForm`).
+**Components:** `FormFeedbackListAdmin`, `FormFeedbackDetailAdmin`
+
+**API:** `GET /api/manage/form-builder/responses` (see [FORM_BUILDER_DISTRIBUTIONS_API.md](./FORM_BUILDER_DISTRIBUTIONS_API.md) §16).
+
+Public submit sends `distributionId` and `notificationId` from query string. Mock layer (`data/mockFormFeedback.ts`) records submits when API is offline.
+
+---
+
+## 9. Out of scope (this release)
+
+- Edit/delete submitted responses in admin.
 - Saved organisation-wide template library (per-send templates only).
 - Short-link click analytics and signed one-time tokens (optional `?t=` on `targetUrl` later).
 
 ---
 
-## 9. Implementation order
+## 10. Implementation order
 
 1. Navigation (Forms submenu)
 2. Types + API module + mocks
@@ -316,7 +331,7 @@ flowchart TB
 
 ---
 
-## 10. Document index
+## 11. Document index
 
 | Document | Audience |
 |----------|----------|

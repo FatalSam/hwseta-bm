@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/ultis/cn';
+import ThemeToggle from '@/components/theme-toggle';
 import {
   useBeneficiaryNotificationUnreadCount,
   useBeneficiaryNotifications,
@@ -166,6 +167,7 @@ export default function DashboardHeader() {
         </form>
 
         <div className="flex items-center justify-end gap-1 sm:shrink-0 sm:gap-2">
+          <ThemeToggle variant="compact" />
           <div className="relative">
             <button
               type="button"

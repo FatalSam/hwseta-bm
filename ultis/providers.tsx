@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { initializeGridScrollSync } from '@/lib/grid-scroll-sync';
 import { usePathname, useRouter } from 'next/navigation';
 import { NotificationProvider } from '@/components/ui/notification';
+import { ThemeProvider } from '@/components/theme-provider';
 
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 const WARNING_COUNTDOWN_SECONDS = 60;
@@ -229,11 +230,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <NotificationProvider>
-        <SessionManager>
-          {children}
-        </SessionManager>
-      </NotificationProvider>
+      <ThemeProvider>
+        <NotificationProvider>
+          <SessionManager>
+            {children}
+          </SessionManager>
+        </NotificationProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
