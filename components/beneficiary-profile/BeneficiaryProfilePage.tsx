@@ -2889,6 +2889,7 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
       setProgrammeDraft(createProgrammeDraft());
       setProgrammeDraftCustomFields(DEFAULT_PROGRAMME_DRAFT_CUSTOM_FIELDS);
       setEditingProgrammeClientId(null);
+      window.dispatchEvent(new Event("hwseta:beneficiary-profile-saved"));
       addNotification({
         type: "success",
         title: "Profile Updated",

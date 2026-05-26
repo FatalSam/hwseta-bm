@@ -878,3 +878,178 @@
 .pac-container {
   z-index: 10050 !important;
 }
+
+/* System dark mode: follows the user's device/browser preference. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --light-color: #0f172a;
+    --dark-color: #e5e7eb;
+  }
+
+  html,
+  body {
+    background: #020617;
+    color: #e5e7eb;
+  }
+
+  body {
+    color-scheme: dark;
+  }
+
+  [class~="bg-white"],
+  [class~="bg-white/90"],
+  [class~="bg-white/95"],
+  [class~="bg-white/80"],
+  [class~="bg-white/70"],
+  [class~="bg-slate-50"],
+  [class~="bg-slate-50/90"],
+  [class~="bg-slate-50/80"],
+  [class~="bg-gray-50"],
+  [class~="bg-gray-100"],
+  [class~="bg-emerald-50/20"],
+  [class~="bg-emerald-50/30"],
+  [class~="bg-hwseta-green-muted"],
+  [class~="bg-hwseta-green-muted/40"],
+  [class~="bg-hwseta-green-muted/80"] {
+    background-color: #0f172a !important;
+  }
+
+  [class~="from-slate-50"],
+  [class~="from-white"],
+  [class~="via-white"],
+  [class~="to-white"],
+  [class~="to-gray-100"],
+  [class~="to-hwseta-green-muted/40"] {
+    --tw-gradient-from: #020617 var(--tw-gradient-from-position) !important;
+    --tw-gradient-via: #0f172a var(--tw-gradient-via-position) !important;
+    --tw-gradient-to: #111827 var(--tw-gradient-to-position) !important;
+  }
+
+  [class~="text-slate-950"],
+  [class~="text-slate-900"],
+  [class~="text-gray-900"],
+  [class~="text-gray-800"],
+  [class~="text-hwseta-green-dark"] {
+    color: #f8fafc !important;
+  }
+
+  [class~="text-slate-800"],
+  [class~="text-slate-700"],
+  [class~="text-gray-700"] {
+    color: #e5e7eb !important;
+  }
+
+  [class~="text-slate-600"],
+  [class~="text-slate-500"],
+  [class~="text-gray-600"],
+  [class~="text-gray-500"] {
+    color: #cbd5e1 !important;
+  }
+
+  [class~="text-slate-400"],
+  [class~="text-gray-400"] {
+    color: #94a3b8 !important;
+  }
+
+  [class~="border-slate-50"],
+  [class~="border-slate-100"],
+  [class~="border-slate-200"],
+  [class~="border-slate-200/80"],
+  [class~="border-gray-100"],
+  [class~="border-gray-200"],
+  [class~="border-hwseta-green-muted"],
+  [class~="border-hwseta-green-muted/80"] {
+    border-color: rgba(51, 65, 85, 0.9) !important;
+  }
+
+  [class~="divide-slate-100"] > :not([hidden]) ~ :not([hidden]),
+  [class~="divide-slate-200"] > :not([hidden]) ~ :not([hidden]),
+  [class~="divide-gray-100"] > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgba(51, 65, 85, 0.9) !important;
+  }
+
+  input,
+  select,
+  textarea,
+  [class~="bg-slate-50/80"] input {
+    background-color: #111827 !important;
+    border-color: #334155 !important;
+    color: #f8fafc !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #94a3b8 !important;
+  }
+
+  table,
+  thead,
+  tbody,
+  tr,
+  td,
+  th {
+    border-color: rgba(51, 65, 85, 0.9);
+  }
+
+  tbody[class~="bg-white"],
+  tr[class~="bg-white"],
+  td[class~="bg-white"] {
+    background-color: #0f172a !important;
+  }
+
+  [class~="hover:bg-slate-50"]:hover,
+  [class~="hover:bg-slate-100"]:hover,
+  [class~="hover:bg-emerald-50/30"]:hover,
+  [class~="hover:bg-emerald-50/40"]:hover,
+  [class~="hover:bg-hwseta-green-muted"]:hover {
+    background-color: #1e293b !important;
+  }
+
+  [class~="shadow-sm"],
+  [class~="shadow-md"],
+  [class~="shadow-lg"],
+  [class~="shadow-xl"],
+  [class~="shadow-2xl"] {
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35) !important;
+  }
+
+  .e-grid,
+  .e-grid .e-gridheader,
+  .e-grid .e-headercell,
+  .e-grid .e-toolbar,
+  .e-grid .e-pager {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+    color: #e5e7eb !important;
+  }
+
+  .e-grid .e-row,
+  .e-grid .e-row:nth-child(even),
+  .modern-grid .e-row:nth-child(odd),
+  .modern-grid .e-row:nth-child(even),
+  .e-grid-custom .e-row:nth-child(odd),
+  .e-grid-custom .e-row:nth-child(even) {
+    background-color: #111827 !important;
+    color: #e5e7eb !important;
+    border-color: #334155 !important;
+  }
+
+  .e-grid .e-rowcell,
+  .modern-grid .e-rowcell,
+  .e-grid-custom .e-rowcell {
+    color: #e5e7eb !important;
+  }
+
+  .e-grid .e-row:hover,
+  .modern-grid .e-row:hover,
+  .e-grid-custom .e-row:hover {
+    background-color: #1e293b !important;
+  }
+
+  .pac-container {
+    background-color: #0f172a;
+    border-color: #334155;
+    color: #e5e7eb;
+  }
+}

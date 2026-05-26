@@ -1,0 +1,11 @@
+---
+description: Keep backend API work in the HWSETAAPI project and preserve frontend API references
+alwaysApply: true
+---
+
+# HWSETAAPI Backend Reference
+
+- Backend API changes belong in the sibling project `C:\Users\MadrushOne\Documents\Visual Studio 2022\Projects\HWSETAAPI\HWSETAAPI`.
+- Do not change the frontend API base reference or replace `NEXT_PUBLIC_API_URL` / `config/environment.ts` wiring unless the user explicitly asks.
+- For new backend endpoints, services, SQL scripts, or controllers, work in `HWSETAAPI` first, then only update the beneficiary monitoring frontend clients/hooks/components needed to consume those endpoints.
+- Keep the beneficiary monitoring app pointed at the configured HWSETA API; do not switch it to legacy `connect-mybeneficiary-main` API paths.

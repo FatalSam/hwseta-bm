@@ -1,8 +1,9 @@
 'use client';
 
-import { Fragment, useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback, type ComponentType, type SVGProps } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, Transition } from "@headlessui/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,9 +33,11 @@ import {
 } from "@heroicons/react/24/outline";
 import { LifeBuoy, LogOut } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
+import { getMyBeneficiaryProfile } from "@/api/beneficiaryProfile";
 import { getUserRoleFromToken, isAdminRole, isBeneficiaryRole } from "@/lib/jwt-utils";
 import DashboardHeader from "./dashboard-header";
 import { DashboardFooter } from "./dashboard-footer";
+import type { BeneficiaryProfileRecord } from "@/types/beneficiaryProfile";
 
 const SIDEBAR_COLLAPSED_KEY = "hwseta-beneficiary-sidebar-collapsed";
 
@@ -59,6 +62,7 @@ const BENEFICIARY_COMMUNICATION = '/dashboard/beneficiary/communication';
 const BENEFICIARY_COMMUNICATION_SMS = `${BENEFICIARY_COMMUNICATION}/sms`;
 const BENEFICIARY_COMMUNICATION_EMAIL = `${BENEFICIARY_COMMUNICATION}/email`;
 const BENEFICIARY_SUPPORT = '/dashboard/beneficiary/support';
+const BENEFICIARY_PROFILE_SAVED_EVENT = 'hwseta:beneficiary-profile-saved';
 
 const ADMIN_BASE = '/dashboard/admin';
 const ADMIN_BENEFICIARIES = `${ADMIN_BASE}/beneficiaries`;
@@ -75,6 +79,13 @@ const ADMIN_SETUP_SMS_EMAIL_SETTINGS = `${ADMIN_SETUP_BASE}/sms-email-settings`;
 const REPORTS_BASE = '/dashboard/reports';
 const REPORTS_BENEFICIARY_PROFILES = `${REPORTS_BASE}/beneficiary-profiles`;
 
+function hasBeneficiaryProfile(profile: BeneficiaryProfileRecord | undefined): boolean {
+  if (!profile || typeof profile !== 'object') return false;
+  const record = profile as Record<string, unknown>;
+  const id = record.beneficiaryId ?? record.BeneficiaryId ?? record.BeneficiaryID;
+  return id != null && String(id).trim().length > 0;
+}
+
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
@@ -90,6 +101,15 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const role = getUserRoleFromToken(token);
   const showAdminNav = isAdminRole(role);
   const showBeneficiaryNav = isBeneficiaryRole(role) && !showAdminNav;
+  const beneficiaryProfileQuery = useQuery({
+    queryKey: ['beneficiary-profile', 'sidebar-gate'],
+    queryFn: getMyBeneficiaryProfile,
+    enabled: showBeneficiaryNav,
+    retry: false,
+  });
+  const { refetch: refetchBeneficiaryProfile } = beneficiaryProfileQuery;
+  const beneficiaryProfileExists = !showBeneficiaryNav || hasBeneficiaryProfile(beneficiaryProfileQuery.data);
+  const beneficiaryNavLocked = showBeneficiaryNav && !beneficiaryProfileExists;
 
   useEffect(() => {
     try {
@@ -137,6 +157,28 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     }
   }, [pathname]);
 
+  useEffect(() => {
+    if (!showBeneficiaryNav) return;
+    const onProfileSaved = () => {
+      refetchBeneficiaryProfile();
+    };
+    window.addEventListener(BENEFICIARY_PROFILE_SAVED_EVENT, onProfileSaved);
+    return () => window.removeEventListener(BENEFICIARY_PROFILE_SAVED_EVENT, onProfileSaved);
+  }, [refetchBeneficiaryProfile, showBeneficiaryNav]);
+
+  useEffect(() => {
+    if (!beneficiaryNavLocked || beneficiaryProfileQuery.isLoading) return;
+    const allowed =
+      pathname === BENEFICIARY_HOME ||
+      pathname === BENEFICIARY_PROFILE ||
+      pathname.startsWith(`${BENEFICIARY_PROFILE}/`) ||
+      pathname === BENEFICIARY_SUPPORT ||
+      pathname.startsWith(`${BENEFICIARY_SUPPORT}/`);
+    if (!allowed) {
+      router.replace(BENEFICIARY_PROFILE);
+    }
+  }, [beneficiaryNavLocked, beneficiaryProfileQuery.isLoading, pathname, router]);
+
   const toggleDesktopSidebar = useCallback(() => {
     setDesktopCollapsed((prev) => {
       const next = !prev;
@@ -173,6 +215,32 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       "focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8fafc]",
       collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5",
     );
+
+  const disabledNavClass = (collapsed: boolean) =>
+    classNames(
+      "group flex w-full items-center gap-3 rounded-lg text-sm font-semibold text-slate-400 opacity-55",
+      "cursor-not-allowed bg-slate-50/70",
+      collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5",
+    );
+
+  const profileLockedTitle = "Complete My Profile to unlock this menu item.";
+
+  const renderDisabledBeneficiaryItem = (
+    label: string,
+    Icon: ComponentType<SVGProps<SVGSVGElement>>,
+    collapsed: boolean,
+  ) => (
+    <button
+      type="button"
+      disabled
+      className={disabledNavClass(collapsed)}
+      aria-label={collapsed ? `${label} locked until profile is completed` : undefined}
+      title={profileLockedTitle}
+    >
+      <Icon className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
+      {!collapsed && <span>{label}</span>}
+    </button>
+  );
 
   const renderSidebarNav = (
     collapsed: boolean,
@@ -283,44 +351,59 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
               </Link>
             </li>
             <li>
-              <Link
-                href={BENEFICIARY_PROGRAMMES}
-                className={navLinkClass(BENEFICIARY_PROGRAMMES, collapsed)}
-                aria-label={collapsed ? "Programmes" : undefined}
-              >
-                <AcademicCapIcon className="h-5 w-5 shrink-0 opacity-90 group-hover:opacity-100" aria-hidden />
-                {!collapsed && <span>Programmes</span>}
-              </Link>
+              {beneficiaryNavLocked ? (
+                renderDisabledBeneficiaryItem("Programmes", AcademicCapIcon, collapsed)
+              ) : (
+                <Link
+                  href={BENEFICIARY_PROGRAMMES}
+                  className={navLinkClass(BENEFICIARY_PROGRAMMES, collapsed)}
+                  aria-label={collapsed ? "Programmes" : undefined}
+                >
+                  <AcademicCapIcon className="h-5 w-5 shrink-0 opacity-90 group-hover:opacity-100" aria-hidden />
+                  {!collapsed && <span>Programmes</span>}
+                </Link>
+              )}
             </li>
             <li>
-              <Link
-                href={BENEFICIARY_FEEDBACK_FORMS}
-                className={navLinkClass(BENEFICIARY_FEEDBACK_FORMS, collapsed)}
-                aria-label={collapsed ? "Feedback Forms" : undefined}
-              >
-                <ClipboardDocumentListIcon className="h-5 w-5 shrink-0 opacity-90 group-hover:opacity-100" aria-hidden />
-                {!collapsed && <span>Feedback Forms</span>}
-              </Link>
+              {beneficiaryNavLocked ? (
+                renderDisabledBeneficiaryItem("Feedback Forms", ClipboardDocumentListIcon, collapsed)
+              ) : (
+                <Link
+                  href={BENEFICIARY_FEEDBACK_FORMS}
+                  className={navLinkClass(BENEFICIARY_FEEDBACK_FORMS, collapsed)}
+                  aria-label={collapsed ? "Feedback Forms" : undefined}
+                >
+                  <ClipboardDocumentListIcon className="h-5 w-5 shrink-0 opacity-90 group-hover:opacity-100" aria-hidden />
+                  {!collapsed && <span>Feedback Forms</span>}
+                </Link>
+              )}
             </li>
             <li>
-              <Link
-                href={BENEFICIARY_COMPLAINTS}
-                className={navLinkClass(BENEFICIARY_COMPLAINTS, collapsed)}
-                aria-label={collapsed ? "Complaints" : undefined}
-              >
-                <ExclamationTriangleIcon className="h-5 w-5 shrink-0 opacity-90 group-hover:opacity-100" aria-hidden />
-                {!collapsed && <span>Complaints</span>}
-              </Link>
+              {beneficiaryNavLocked ? (
+                renderDisabledBeneficiaryItem("Complaints", ExclamationTriangleIcon, collapsed)
+              ) : (
+                <Link
+                  href={BENEFICIARY_COMPLAINTS}
+                  className={navLinkClass(BENEFICIARY_COMPLAINTS, collapsed)}
+                  aria-label={collapsed ? "Complaints" : undefined}
+                >
+                  <ExclamationTriangleIcon className="h-5 w-5 shrink-0 opacity-90 group-hover:opacity-100" aria-hidden />
+                  {!collapsed && <span>Complaints</span>}
+                </Link>
+              )}
             </li>
             <li className="space-y-1">
               <div
                 id={commTriggerId}
                 role="group"
                 aria-label="Communication"
+                title={beneficiaryNavLocked ? profileLockedTitle : undefined}
                 className={classNames(
                   "flex w-full items-center rounded-lg text-sm font-semibold",
                   collapsed ? "justify-center px-2 py-2.5" : "gap-2 px-3 py-2.5",
-                  pathname.startsWith(`${BENEFICIARY_COMMUNICATION}/`)
+                  beneficiaryNavLocked
+                    ? "cursor-not-allowed bg-slate-50/70 text-slate-400 opacity-55"
+                    : pathname.startsWith(`${BENEFICIARY_COMMUNICATION}/`)
                     ? "bg-emerald-50/90 text-hwseta-green-dark ring-1 ring-hwseta-green/15"
                     : "text-slate-600",
                 )}
@@ -340,24 +423,32 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                 aria-labelledby={commTriggerId}
               >
                 <li>
-                  <Link
-                    href={BENEFICIARY_COMMUNICATION_SMS}
-                    className={navLinkClass(BENEFICIARY_COMMUNICATION_SMS, collapsed, { exact: true })}
-                    aria-label={collapsed ? "SMS" : undefined}
-                  >
-                    <ChatBubbleLeftRightIcon className="h-5 w-5 shrink-0 opacity-90 group-hover:opacity-100" aria-hidden />
-                    {!collapsed && <span>SMS</span>}
-                  </Link>
+                  {beneficiaryNavLocked ? (
+                    renderDisabledBeneficiaryItem("SMS", ChatBubbleLeftRightIcon, collapsed)
+                  ) : (
+                    <Link
+                      href={BENEFICIARY_COMMUNICATION_SMS}
+                      className={navLinkClass(BENEFICIARY_COMMUNICATION_SMS, collapsed, { exact: true })}
+                      aria-label={collapsed ? "SMS" : undefined}
+                    >
+                      <ChatBubbleLeftRightIcon className="h-5 w-5 shrink-0 opacity-90 group-hover:opacity-100" aria-hidden />
+                      {!collapsed && <span>SMS</span>}
+                    </Link>
+                  )}
                 </li>
                 <li>
-                  <Link
-                    href={BENEFICIARY_COMMUNICATION_EMAIL}
-                    className={navLinkClass(BENEFICIARY_COMMUNICATION_EMAIL, collapsed, { exact: true })}
-                    aria-label={collapsed ? "Emails" : undefined}
-                  >
-                    <EnvelopeIcon className="h-5 w-5 shrink-0 opacity-90 group-hover:opacity-100" aria-hidden />
-                    {!collapsed && <span>Emails</span>}
-                  </Link>
+                  {beneficiaryNavLocked ? (
+                    renderDisabledBeneficiaryItem("Emails", EnvelopeIcon, collapsed)
+                  ) : (
+                    <Link
+                      href={BENEFICIARY_COMMUNICATION_EMAIL}
+                      className={navLinkClass(BENEFICIARY_COMMUNICATION_EMAIL, collapsed, { exact: true })}
+                      aria-label={collapsed ? "Emails" : undefined}
+                    >
+                      <EnvelopeIcon className="h-5 w-5 shrink-0 opacity-90 group-hover:opacity-100" aria-hidden />
+                      {!collapsed && <span>Emails</span>}
+                    </Link>
+                  )}
                 </li>
               </ul>
             </li>

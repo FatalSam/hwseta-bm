@@ -372,7 +372,10 @@ export default function Signup() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label className={labelClass} htmlFor="reg-email">Email Address <span className="text-red-500">*</span></label>
-                                    <input id="reg-email" type="email" name="email" value={formData.email} onChange={handleChange} onBlur={validateEmailField} placeholder="support@mybeneficiary.co.za" required aria-invalid={!!emailError} aria-describedby={emailError ? 'reg-email-error' : undefined} className={`${inputClass} ${emailError ? inputErrorClass : ''}`} />
+                                    <p id="reg-email-help" className="mb-1 text-xs text-slate-500">
+                                        Please use your primary or personal email address. (this will be used for communication).
+                                    </p>
+                                    <input id="reg-email" type="email" name="email" value={formData.email} onChange={handleChange} onBlur={validateEmailField} placeholder="support@mybeneficiary.co.za" required aria-invalid={!!emailError} aria-describedby={emailError ? 'reg-email-help reg-email-error' : 'reg-email-help'} className={`${inputClass} ${emailError ? inputErrorClass : ''}`} />
                                     {emailError && <p id="reg-email-error" className="text-xs text-red-600 mt-1" role="alert">{emailError}</p>}
                                 </div>
                                 <div>

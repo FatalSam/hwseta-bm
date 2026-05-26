@@ -1,8 +1,6 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { FormToggleSwitch } from '@/components/admin/FormToggleSwitch';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 interface LoginFormData {
@@ -31,7 +29,6 @@ export default function Login({
     onShowPasswordToggle,
     onSubmit
 }: LoginProps) {
-    const [rememberMe, setRememberMe] = useState(false);
     const inputClass = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-hwseta-green focus:border-hwseta-green transition-shadow";
 
     if (isAuthenticated) {
@@ -100,12 +97,11 @@ export default function Login({
                                 </div>
                             </div>
 
-                            <FormToggleSwitch
-                                checked={rememberMe}
-                                onChange={setRememberMe}
-                                label="Remember me"
-                                description="Stay signed in on this device."
-                            />
+                            <div className="flex justify-end">
+                                <Link href="/forgot-password" className="text-sm font-semibold text-hwseta-green hover:text-hwseta-green-dark transition-colors">
+                                    Forgotten password?
+                                </Link>
+                            </div>
 
                             <button
                                 type="submit"

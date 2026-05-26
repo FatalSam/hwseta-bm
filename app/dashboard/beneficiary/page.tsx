@@ -15,6 +15,7 @@ import {
 } from 'react-icons/fa';
 import { listBeneficiaryEmailInbox } from '@/api/beneficiaryEmailMessages';
 import { listBeneficiaryComplaints } from '@/api/beneficiaryComplaints';
+import { listMyFeedbackForms } from '@/api/beneficiaryFeedbackForms';
 import { listBeneficiaryProgrammeLinks } from '@/api/beneficiaryProfile';
 import { listBeneficiarySms } from '@/api/beneficiarySms';
 import { useAuthStore } from '@/store/authStore';
@@ -406,6 +407,13 @@ export default function BeneficiaryDashboardPage() {
     retry: false,
   });
 
+  const feedbackFormsQuery = useQuery({
+    queryKey: ['beneficiary-dashboard', 'feedback-forms'],
+    queryFn: () => listMyFeedbackForms({ page: 1, pageSize: 1 }),
+    enabled: isReady,
+    retry: false,
+  });
+
   const links = programmeLinksQuery.data ?? [];
   const programmeCount = useMemo(() => countDistinctProgrammes(links), [links]);
   const qualificationCount = useMemo(() => countDistinctQualifications(links), [links]);
@@ -440,6 +448,14 @@ export default function BeneficiaryDashboardPage() {
     if (lastEmailAt) return `Last received ${formatLastReceived(lastEmailAt)}`;
     return 'Last received time unavailable.';
   }, [emailQuery.isLoading, emailQuery.isError, emailQuery.error, emailCount, lastEmailAt]);
+
+  const feedbackFormsCount = feedbackFormsQuery.data?.totalCount ?? 0;
+  const feedbackFormsSubtitle = useMemo(() => {
+    if (feedbackFormsQuery.isLoading) return 'Loading…';
+    if (feedbackFormsQuery.isError) return 'Could not load feedback forms.';
+    if (feedbackFormsCount === 0) return 'No feedback forms assigned yet.';
+    return 'Open feedback forms assigned to you.';
+  }, [feedbackFormsCount, feedbackFormsQuery.isError, feedbackFormsQuery.isLoading]);
 
   const dashboardCards = useMemo(
     () =>
@@ -531,15 +547,15 @@ export default function BeneficiaryDashboardPage() {
           kind: 'metric' as const,
           title: 'Feedback surveys',
           href: '/dashboard/beneficiary/feedback-forms',
-          value: 'Soon',
-          subtitle: 'We will connect this dashboard metric when surveys go live.',
+          value: feedbackFormsQuery.isLoading ? '…' : feedbackFormsQuery.isError ? '—' : String(feedbackFormsCount),
+          subtitle: feedbackFormsSubtitle,
           icon: FaRegCommentDots,
           accent: 'from-[#fffbeb] via-white to-emerald-50/20',
           iconBg:
             'bg-gradient-to-br from-[#feca07]/22 to-yellow-300/12 text-[#9a7200] shadow-[inset_0_1px_0_rgba(255,255,255,0.95)] ring-1 ring-[#feca07]/35',
           variant: 'gold' satisfies CardVariantKey,
-          loading: false,
-          mutedValue: true,
+          loading: feedbackFormsQuery.isLoading,
+          mutedValue: feedbackFormsQuery.isError,
         },
       ] as const,
     [
@@ -558,6 +574,10 @@ export default function BeneficiaryDashboardPage() {
       complaintStatusRows,
       complaintTotal,
       complaintsQuery.isLoading,
+      feedbackFormsCount,
+      feedbackFormsQuery.isError,
+      feedbackFormsQuery.isLoading,
+      feedbackFormsSubtitle,
       programmeLinksQuery.isLoading,
     ],
   );

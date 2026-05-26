@@ -10,6 +10,7 @@ import {
   UserCircleIcon,
 } from '@heroicons/react/24/outline';
 import BeneficiaryComplaintsClient from '@/components/beneficiary/BeneficiaryComplaintsClient';
+import BeneficiaryFeedbackFormsPanel from '@/components/beneficiary/BeneficiaryFeedbackFormsPanel';
 import AdminBeneficiaryEmailsPanel from '@/components/admin/AdminBeneficiaryEmailsPanel';
 import AdminBeneficiarySmsPanel from '@/components/admin/AdminBeneficiarySmsPanel';
 import { cn } from '@/ultis/cn';
@@ -186,6 +187,15 @@ export default function AdminBeneficiaryWorkspacePanel({
             className="min-w-0"
           >
             <BeneficiaryComplaintsClient variant="admin" beneficiaryId={beneficiaryId} layout="embed" />
+          </div>
+        ) : active !== 'profile' && active === 'feedback-forms' && beneficiaryId ? (
+          <div
+            role="tabpanel"
+            id="admin-workspace-panel-feedback-forms"
+            aria-labelledby="admin-workspace-tab-feedback-forms"
+            className="min-w-0"
+          >
+            <BeneficiaryFeedbackFormsPanel beneficiaryId={beneficiaryId} layout="embed" />
           </div>
         ) : active !== 'profile' && secondary ? (
           <div

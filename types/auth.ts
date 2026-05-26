@@ -28,3 +28,43 @@ export interface RegisterBeneficiary {
     phoneNumber: string;
     password: string;
 }
+
+export type PasswordResetChannel = 'email' | 'sms';
+
+export interface PasswordResetRequestPayload {
+    channel: PasswordResetChannel;
+    email?: string;
+    phoneNumber?: string;
+}
+
+export interface PasswordResetRequestResult {
+    success: boolean;
+    message: string;
+    channel: PasswordResetChannel;
+    requestId?: string;
+    expiresAt?: string;
+}
+
+export interface PasswordResetVerifyPayload {
+    requestId: string;
+    otp: string;
+}
+
+export interface PasswordResetCompletePayload {
+    token?: string;
+    requestId?: string;
+    otp?: string;
+    userId?: string;
+    newPassword: string;
+}
+
+export interface PasswordResetAccountOption {
+    userId: string;
+    username: string;
+}
+
+export interface PasswordResetResult {
+    success: boolean;
+    message: string;
+    users?: PasswordResetAccountOption[];
+}

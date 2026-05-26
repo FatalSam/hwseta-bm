@@ -7,6 +7,36 @@ import { useAuthStore } from '@/store/authStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/ultis/cn';
+import {
+  useBeneficiaryNotificationUnreadCount,
+  useBeneficiaryNotifications,
+  useMarkAllBeneficiaryNotificationsRead,
+  useMarkBeneficiaryNotificationRead,
+} from '@/hooks/useBeneficiaryNotifications';
+import {
+  useAdminNotificationUnreadCount,
+  useAdminNotifications,
+  useMarkAdminNotificationRead,
+  useMarkAllAdminNotificationsRead,
+} from '@/hooks/useAdminNotifications';
+import type { BeneficiaryNotificationRow } from '@/types/beneficiaryNotifications';
+import type { AdminNotificationRow } from '@/types/adminNotifications';
+
+type HeaderNotificationRow = Pick<
+  BeneficiaryNotificationRow | AdminNotificationRow,
+  'notificationId' | 'notificationType' | 'title' | 'message' | 'linkUrl' | 'isRead' | 'dateCreated'
+>;
+
+function formatNotificationDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 export default function DashboardHeader() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -17,6 +47,26 @@ export default function DashboardHeader() {
   const { user, isAuthenticated } = useAuthStore();
   const { logout } = useAuth();
   const router = useRouter();
+  const isBeneficiary = user?.role?.toLowerCase() === 'beneficiary';
+  const isAdmin = isClient && isAuthenticated && !!user && !isBeneficiary;
+  const beneficiaryNotificationsEnabled = isClient && isAuthenticated && isBeneficiary;
+  const adminNotificationsEnabled = isAdmin;
+  const beneficiaryNotificationsQuery = useBeneficiaryNotifications(
+    { page: 1, pageSize: 6 },
+    beneficiaryNotificationsEnabled,
+  );
+  const beneficiaryUnreadCountQuery = useBeneficiaryNotificationUnreadCount(beneficiaryNotificationsEnabled);
+  const adminNotificationsQuery = useAdminNotifications({ page: 1, pageSize: 6 }, adminNotificationsEnabled);
+  const adminUnreadCountQuery = useAdminNotificationUnreadCount(adminNotificationsEnabled);
+  const markBeneficiaryReadMutation = useMarkBeneficiaryNotificationRead();
+  const markAllBeneficiaryReadMutation = useMarkAllBeneficiaryNotificationsRead();
+  const markAdminReadMutation = useMarkAdminNotificationRead();
+  const markAllAdminReadMutation = useMarkAllAdminNotificationsRead();
+  const notificationsQuery = isAdmin ? adminNotificationsQuery : beneficiaryNotificationsQuery;
+  const unreadCountQuery = isAdmin ? adminUnreadCountQuery : beneficiaryUnreadCountQuery;
+  const notifications: HeaderNotificationRow[] = notificationsQuery.data?.items ?? [];
+  const unreadCount = unreadCountQuery.data?.unreadCount ?? notificationsQuery.data?.unreadCount ?? 0;
+  const markAllReadPending = isAdmin ? markAllAdminReadMutation.isPending : markAllBeneficiaryReadMutation.isPending;
 
   useEffect(() => {
     setIsClient(true);
@@ -43,6 +93,31 @@ export default function DashboardHeader() {
 
   const onSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+  };
+
+  const handleNotificationClick = async (notification: HeaderNotificationRow) => {
+    try {
+      if (!notification.isRead) {
+        if (isAdmin) {
+          await markAdminReadMutation.mutateAsync(notification.notificationId);
+        } else {
+          await markBeneficiaryReadMutation.mutateAsync(notification.notificationId);
+        }
+      }
+    } finally {
+      setNotifOpen(false);
+      if (notification.linkUrl) {
+        router.push(notification.linkUrl);
+      }
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    if (isAdmin) {
+      await markAllAdminReadMutation.mutateAsync();
+    } else {
+      await markAllBeneficiaryReadMutation.mutateAsync();
+    }
   };
 
   if (!isClient) {
@@ -107,17 +182,80 @@ export default function DashboardHeader() {
               }}
             >
               <BellIcon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </button>
             {notifOpen && (
-              <div className="absolute right-0 z-30 mt-2 w-[min(100vw-2rem,20rem)] rounded-xl bg-white/95 shadow-xl ring-1 ring-slate-200/80 backdrop-blur-sm">
-                <div className="border-b border-slate-100 px-4 py-2.5">
+              <div className="absolute right-0 z-30 mt-2 w-[min(100vw-2rem,24rem)] rounded-xl bg-white/95 shadow-xl ring-1 ring-slate-200/80 backdrop-blur-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Notifications
                   </p>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleMarkAllRead}
+                      disabled={markAllReadPending}
+                      className="text-xs font-semibold text-hwseta-green hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Mark all read
+                    </button>
+                  )}
                 </div>
-                <div className="max-h-64 overflow-y-auto px-4 py-6 text-center">
-                  <p className="text-sm text-slate-600">You’re all caught up.</p>
-                  <p className="mt-1 text-xs text-slate-400">New alerts will appear here.</p>
+                <div className="max-h-80 overflow-y-auto">
+                  {notificationsQuery.isLoading ? (
+                    <div className="px-4 py-6 text-center">
+                      <p className="text-sm text-slate-600">Loading notifications...</p>
+                    </div>
+                  ) : notificationsQuery.isError ? (
+                    <div className="px-4 py-6 text-center">
+                      <p className="text-sm text-slate-600">Could not load notifications.</p>
+                      <p className="mt-1 text-xs text-slate-400">Please try again later.</p>
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="px-4 py-6 text-center">
+                      <p className="text-sm text-slate-600">You are all caught up.</p>
+                      <p className="mt-1 text-xs text-slate-400">New alerts will appear here.</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {notifications.map((notification) => (
+                        <button
+                          key={notification.notificationId}
+                          type="button"
+                          onClick={() => handleNotificationClick(notification)}
+                          className="flex w-full gap-3 px-4 py-3 text-left transition hover:bg-emerald-50/40"
+                        >
+                          <span
+                            className={cn(
+                              'mt-1 h-2.5 w-2.5 shrink-0 rounded-full',
+                              notification.isRead ? 'bg-slate-200' : 'bg-hwseta-green',
+                            )}
+                            aria-hidden
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="truncate text-xs font-semibold uppercase tracking-wide text-hwseta-green">
+                                {notification.notificationType || 'alert'}
+                              </span>
+                              <span className="shrink-0 text-[11px] text-slate-400">
+                                {formatNotificationDate(notification.dateCreated)}
+                              </span>
+                            </span>
+                            <span className="mt-1 block text-sm font-semibold text-slate-900">
+                              {notification.title}
+                            </span>
+                            <span className="mt-0.5 block line-clamp-2 text-xs leading-5 text-slate-500">
+                              {notification.message}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
