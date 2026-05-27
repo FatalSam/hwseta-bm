@@ -3845,7 +3845,7 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
         e.telephoneNumber = 'Enter a valid South African contact number';
       }
     } else if (employmentSelection === "Not employed") {
-      // Not employed - require Employment Status and Reason
+      // Not employed - require unemployment reason and additional details.
       if (!String(formData.employmentStatus || '').trim()) {
         e.employmentStatus = 'Required';
       }
@@ -5631,7 +5631,7 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
                           </div>
                           <div>
                             <label className="block text-sm font-semibold text-slate-800">
-                              Employment Status
+                              Reason for Unemployment
                               {renderRequiredMark("employmentSelection") && <span className="ml-1">{renderRequiredMark("employmentSelection")}</span>}
                             </label>
                             <p className="mt-1 text-sm text-slate-600">
@@ -5981,7 +5981,7 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
                             <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Employment Status
+                              Reason for Unemployment
                               <span className="ml-1 text-red-600">*</span>
                               {validationErrors.employmentStatus && (
                                 <span className="ml-2 text-xs text-red-600">({validationErrors.employmentStatus})</span>
@@ -6000,7 +6000,7 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
                               }}
                               className={profileSelectClass(!!validationErrors.employmentStatus, "errorBg")}
                             >
-                              <option value="">Select Employment Status</option>
+                              <option value="">Select Reason for Unemployment</option>
                             {employmentTypesUnemployed.map((type) => (
                               <option key={type.id || type.name} value={type.name}>
                                 {type.name}
@@ -6014,7 +6014,7 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
 
                           <div>
                             <label className="mb-2 block text-sm font-semibold text-gray-700">
-                              Reason
+                              Additional Details
                               <span className="ml-1 text-red-600">*</span>
                               {validationErrors.unemploymentReason && (
                                 <span className="ml-2 text-xs text-red-600">({validationErrors.unemploymentReason})</span>
