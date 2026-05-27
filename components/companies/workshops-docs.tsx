@@ -4,6 +4,11 @@ import { DatePickerComponent } from '@syncfusion/ej2-react-calendars';
 import Button from '@/components/ui/button';
 import { useAuthStore } from '@/store/authStore';
 import { saveCompleteBusinessWorkshops, getBusinessWorkshopsHeadersByCompanyID } from '@/api/companies';
+import {
+    preventInvalidDateInputBeforeInput,
+    preventInvalidDateInputKeyDown,
+    preventInvalidDateInputPaste,
+} from '@/components/ui/SyncfusionIsoDatePicker';
 
 interface WorkshopDocsProps {
     onSave?: (documents: Record<string, unknown>) => void;
@@ -290,7 +295,11 @@ const WorkshopDocs: React.FC<WorkshopDocsProps> = ({
                             />
                         </div>
 
-                        <div>
+                        <div
+                            onBeforeInputCapture={preventInvalidDateInputBeforeInput}
+                            onKeyDownCapture={preventInvalidDateInputKeyDown}
+                            onPasteCapture={preventInvalidDateInputPaste}
+                        >
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Date Attended/Completed
                             </label>

@@ -3,6 +3,11 @@ import { DropDownListComponent } from '@syncfusion/ej2-react-dropdowns';
 import { NumericTextBoxComponent, TextBoxComponent } from '@syncfusion/ej2-react-inputs';
 import { DatePickerComponent, ChangedEventArgs } from '@syncfusion/ej2-react-calendars';
 import { DollarSign } from 'lucide-react';
+import {
+    preventInvalidDateInputBeforeInput,
+    preventInvalidDateInputKeyDown,
+    preventInvalidDateInputPaste,
+} from '@/components/ui/SyncfusionIsoDatePicker';
 
 export interface FinancialInformationFormState {
     financialYear: string;
@@ -74,7 +79,12 @@ const FinancialInformationCard: React.FC<FinancialInformationCardProps> = ({
     showHeader = true
 }) => {
     return (
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 overflow-hidden relative">
+        <div
+            className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 overflow-hidden relative"
+            onBeforeInputCapture={preventInvalidDateInputBeforeInput}
+            onKeyDownCapture={preventInvalidDateInputKeyDown}
+            onPasteCapture={preventInvalidDateInputPaste}
+        >
             <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-teal-400/10 to-emerald-400/10 rounded-full -ml-16 -mt-16" />
             <div className="relative z-10">
                 {showHeader && (

@@ -5,6 +5,11 @@ import Link from 'next/link';
 import axios from 'axios';
 import { FaFileExcel, FaPaperPlane, FaRedo } from 'react-icons/fa';
 import { adminFormTheme } from '@/components/admin/adminFormTheme';
+import {
+  preventInvalidDateInputBeforeInput,
+  preventInvalidDateInputKeyDown,
+  preventInvalidDateInputPaste,
+} from '@/components/ui/SyncfusionIsoDatePicker';
 import { useFormDistributionsList } from '@/hooks/useFormSubmissions';
 import { listManageForms } from '@/api/formBuilder';
 import { exportRowsToExcel } from '@/ultis/exportExcel';
@@ -209,6 +214,9 @@ export default function FormSubmissionsListAdmin() {
                 setCreatedFrom(e.target.value);
                 setPage(1);
               }}
+              onBeforeInput={preventInvalidDateInputBeforeInput}
+              onKeyDown={preventInvalidDateInputKeyDown}
+              onPaste={preventInvalidDateInputPaste}
               className={adminFormTheme.input}
             />
           </div>
@@ -221,6 +229,9 @@ export default function FormSubmissionsListAdmin() {
                 setCreatedTo(e.target.value);
                 setPage(1);
               }}
+              onBeforeInput={preventInvalidDateInputBeforeInput}
+              onKeyDown={preventInvalidDateInputKeyDown}
+              onPaste={preventInvalidDateInputPaste}
               className={adminFormTheme.input}
             />
           </div>

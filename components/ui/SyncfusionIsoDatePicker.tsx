@@ -2,6 +2,7 @@
 
 import { DatePickerComponent } from '@syncfusion/ej2-react-calendars';
 import type { ChangedEventArgs } from '@syncfusion/ej2-react-calendars';
+import type { ClipboardEvent, FormEvent, KeyboardEvent } from 'react';
 import { cn } from '@/ultis/cn';
 
 /** Convert stored yyyy-mm-dd to a local calendar Date (no UTC shift). */
@@ -20,6 +21,49 @@ export function localDateToIsoDate(d: Date | null | undefined): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+const DATE_ALLOWED_CONTROL_KEYS = new Set([
+  'Backspace',
+  'Delete',
+  'Tab',
+  'Enter',
+  'Escape',
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowUp',
+  'ArrowDown',
+  'Home',
+  'End',
+]);
+
+function isDateInputTarget(target: EventTarget | null): target is HTMLInputElement {
+  return target instanceof HTMLInputElement;
+}
+
+export function preventInvalidDateInputKeyDown(event: KeyboardEvent<HTMLElement>) {
+  if (!isDateInputTarget(event.target)) return;
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (DATE_ALLOWED_CONTROL_KEYS.has(event.key)) return;
+  if (event.key.length === 1 && !/[\d/\-\s]/.test(event.key)) {
+    event.preventDefault();
+  }
+}
+
+export function preventInvalidDateInputPaste(event: ClipboardEvent<HTMLElement>) {
+  if (!isDateInputTarget(event.target)) return;
+  const text = event.clipboardData.getData('text');
+  if (/[A-Za-z]/.test(text)) {
+    event.preventDefault();
+  }
+}
+
+export function preventInvalidDateInputBeforeInput(event: FormEvent<HTMLElement>) {
+  if (!isDateInputTarget(event.target)) return;
+  const nativeEvent = event.nativeEvent as InputEvent;
+  if (nativeEvent.data && /[A-Za-z]/.test(nativeEvent.data)) {
+    event.preventDefault();
+  }
 }
 
 export type SyncfusionIsoDatePickerProps = {
@@ -54,6 +98,9 @@ export function SyncfusionIsoDatePicker({
 }: SyncfusionIsoDatePickerProps) {
   return (
     <div
+      onBeforeInputCapture={preventInvalidDateInputBeforeInput}
+      onKeyDownCapture={preventInvalidDateInputKeyDown}
+      onPasteCapture={preventInvalidDateInputPaste}
       className={cn(
         'profile-syncfusion-datepicker w-full [&_.e-input-group]:min-h-[48px] [&_.e-input-group]:rounded-xl',
         hasError && 'rounded-xl ring-2 ring-red-500/25',

@@ -55,6 +55,9 @@ export interface BeneficiaryProgrammeLink {
   otherReasonText?: string | null;
   documents?: BeneficiaryProgrammeLinkDocument[] | null;
   notes?: string | null;
+  createdByUserId?: string | null;
+  createdBy?: string | null;
+  dateCreated?: string | null;
   [key: string]: unknown;
 }
 

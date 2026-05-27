@@ -6,6 +6,11 @@ import axios from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import { FaFileExcel, FaPlus, FaRedo } from 'react-icons/fa';
 import { adminFormTheme } from '@/components/admin/adminFormTheme';
+import {
+  preventInvalidDateInputBeforeInput,
+  preventInvalidDateInputKeyDown,
+  preventInvalidDateInputPaste,
+} from '@/components/ui/SyncfusionIsoDatePicker';
 import { listManageForms, type FormListItem } from '@/api/formBuilder';
 import { buildPublicFormPath, getAppBaseUrl } from '@/lib/appBaseUrl';
 import { exportRowsToExcel } from '@/ultis/exportExcel';
@@ -163,6 +168,9 @@ export default function FormBuilderListAdmin() {
                 setUpdatedFrom(e.target.value);
                 setPage(1);
               }}
+              onBeforeInput={preventInvalidDateInputBeforeInput}
+              onKeyDown={preventInvalidDateInputKeyDown}
+              onPaste={preventInvalidDateInputPaste}
               className={adminFormTheme.input}
             />
           </div>
@@ -175,6 +183,9 @@ export default function FormBuilderListAdmin() {
                 setUpdatedTo(e.target.value);
                 setPage(1);
               }}
+              onBeforeInput={preventInvalidDateInputBeforeInput}
+              onKeyDown={preventInvalidDateInputKeyDown}
+              onPaste={preventInvalidDateInputPaste}
               className={adminFormTheme.input}
             />
           </div>

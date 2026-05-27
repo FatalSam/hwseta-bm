@@ -5,6 +5,11 @@ import Link from 'next/link';
 import axios from 'axios';
 import { FaArrowLeft, FaPaperPlane, FaRedo } from 'react-icons/fa';
 import { adminFormTheme } from '@/components/admin/adminFormTheme';
+import {
+  preventInvalidDateInputBeforeInput,
+  preventInvalidDateInputKeyDown,
+  preventInvalidDateInputPaste,
+} from '@/components/ui/SyncfusionIsoDatePicker';
 import { buildPublicFormPath, getAppBaseUrl } from '@/lib/appBaseUrl';
 import { formatProgrammeAudienceSummary } from '@/lib/programme-enrolments-drilldown';
 import {
@@ -260,6 +265,9 @@ export default function FormSubmissionDetailAdmin({ distributionId }: { distribu
                 setSentFrom(e.target.value);
                 setPage(1);
               }}
+              onBeforeInput={preventInvalidDateInputBeforeInput}
+              onKeyDown={preventInvalidDateInputKeyDown}
+              onPaste={preventInvalidDateInputPaste}
               className={adminFormTheme.input}
             />
           </div>
@@ -272,6 +280,9 @@ export default function FormSubmissionDetailAdmin({ distributionId }: { distribu
                 setSentTo(e.target.value);
                 setPage(1);
               }}
+              onBeforeInput={preventInvalidDateInputBeforeInput}
+              onKeyDown={preventInvalidDateInputKeyDown}
+              onPaste={preventInvalidDateInputPaste}
               className={adminFormTheme.input}
             />
           </div>

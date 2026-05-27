@@ -46,6 +46,13 @@ function formatDateForDisplay(value: string): string {
   return `${d}/${m}/${y}`;
 }
 
+function getDateSortValue(value: string): number {
+  const trimmed = value.trim();
+  if (!trimmed) return 0;
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
 function getProgrammeStatusUi(status: ProgrammeCompletionStatus): {
   label: string;
   icon: IconType;
@@ -127,6 +134,16 @@ export default function MyProgrammesListCard({
     }
     return map;
   }, [programmeLinks]);
+  const sortedProgrammeLinks = useMemo(
+    () =>
+      [...programmeLinks].sort((a, b) => {
+        const dateDelta = getDateSortValue(b.dateCreated) - getDateSortValue(a.dateCreated);
+        if (dateDelta !== 0) return dateDelta;
+
+        return String(b.beneficiaryProgrammeLinkId ?? "").localeCompare(String(a.beneficiaryProgrammeLinkId ?? ""));
+      }),
+    [programmeLinks],
+  );
 
   const getProgrammeName = (row: ProgrammeLinkDraft): string =>
     programmeOptions.programmes.find((option) => String(option.id) === row.programmeId)?.name ||
@@ -226,7 +243,7 @@ export default function MyProgrammesListCard({
           </div>
         ) : (
           <div className="space-y-3">
-            {programmeLinks.map((row, index) => {
+            {sortedProgrammeLinks.map((row, index) => {
               const statusUi = getProgrammeStatusUi(row.completedProgramme);
               const StatusIcon = statusUi.icon;
               const programmeName = getProgrammeName(row);
@@ -235,6 +252,8 @@ export default function MyProgrammesListCard({
               const employerName = getEmployerName(row);
               const startDate = formatDateForDisplay(row.startDate) || "No start date";
               const endDate = formatDateForDisplay(row.endDate) || "No end date";
+              const dateCreated = formatDateForDisplay(row.dateCreated) || "Not provided";
+              const createdBy = row.createdBy || row.createdByUserId || "Not provided";
 
               return (
                 <details
@@ -306,6 +325,14 @@ export default function MyProgrammesListCard({
                           Programme End Date
                         </dt>
                         <dd className="mt-1 text-sm font-medium text-slate-900">{endDate}</dd>
+                      </div>
+                      <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
+                        <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Date Created</dt>
+                        <dd className="mt-1 text-sm font-medium text-slate-900">{dateCreated}</dd>
+                      </div>
+                      <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
+                        <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Created By</dt>
+                        <dd className="mt-1 text-sm font-medium text-slate-900">{createdBy}</dd>
                       </div>
                     </dl>
 

@@ -52,12 +52,23 @@ export type ProgrammeLinkDraft = {
   incompleteReason: string;
   otherReasonText: string;
   notes: string;
+  createdByUserId: string;
+  createdBy: string;
+  dateCreated: string;
   /** Shown alongside upload; applies to pending files uploaded in the next save. */
   proofUploadDocumentTitle: string;
 };
 
 function normalizeString(value: unknown): string {
   return value == null ? "" : String(value).trim();
+}
+
+function pickFirstString(source: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = normalizeString(source[key]);
+    if (value) return value;
+  }
+  return "";
 }
 
 function formatDateForInput(value: unknown): string {
@@ -95,6 +106,7 @@ export function mapLinkDocumentToEvidenceFile(document: BeneficiaryProgrammeLink
 }
 
 export function mapProgrammeLinkToDraft(link: BeneficiaryProgrammeLink): ProgrammeLinkDraft {
+  const rawLink = link as Record<string, unknown>;
   const customQualificationName = normalizeString(link.customQualificationName);
   const rawDocuments = Array.isArray(link.documents) ? link.documents : [];
   const isCompleted = normalizeString(link.programmeCompletionStatus) === "Completed";
@@ -128,6 +140,35 @@ export function mapProgrammeLinkToDraft(link: BeneficiaryProgrammeLink): Program
     incompleteReason: normalizeString(link.completionReasonDescription),
     otherReasonText: normalizeString(link.otherReasonText),
     notes: normalizeString(link.notes),
+    createdByUserId: pickFirstString(rawLink, [
+      "createdByUserId",
+      "CreatedByUserId",
+      "createdByUserID",
+      "CreatedByUserID",
+      "createdbyUserID",
+    ]),
+    createdBy: pickFirstString(rawLink, [
+      "createdBy",
+      "CreatedBy",
+      "createdByUser",
+      "CreatedByUser",
+      "createdByName",
+      "CreatedByName",
+      "capturedBy",
+      "CapturedBy",
+      "createdByUserId",
+      "CreatedByUserID",
+      "CreatedByUserId",
+      "createdbyUserID",
+    ]),
+    dateCreated: pickFirstString(rawLink, [
+      "dateCreated",
+      "DateCreated",
+      "createdDate",
+      "CreatedDate",
+      "createdAt",
+      "CreatedAt",
+    ]),
     proofUploadDocumentTitle: "",
   };
 }

@@ -8,6 +8,11 @@ import { environment } from '@/config/environment';
 import CompanyDocumentsGrid from './company-documents-grid';
 import { Spinner } from '@/components/ui/spinner';
 import { FileCheck, FilePlus, FileStack } from 'lucide-react';
+import {
+    preventInvalidDateInputBeforeInput,
+    preventInvalidDateInputKeyDown,
+    preventInvalidDateInputPaste,
+} from '@/components/ui/SyncfusionIsoDatePicker';
 
 // Business types that should NOT show Shareholders Certificate
 const EXCLUDED_BUSINESS_TYPES = [
@@ -658,7 +663,12 @@ const CompanyDocs: React.FC<CompanyDocsProps> = ({
     }, [companyIdStr, loadExistingDocuments]);
 
     return (
-        <div className="max-w-7xl mx-auto p-6">
+        <div
+            className="max-w-7xl mx-auto p-6"
+            onBeforeInputCapture={preventInvalidDateInputBeforeInput}
+            onKeyDownCapture={preventInvalidDateInputKeyDown}
+            onPasteCapture={preventInvalidDateInputPaste}
+        >
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-teal-600">Company Documents</h1>
                 <p className="text-gray-600 mt-2">

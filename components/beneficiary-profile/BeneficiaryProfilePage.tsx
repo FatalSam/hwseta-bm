@@ -170,6 +170,9 @@ function createProgrammeDraft(): ProgrammeLinkDraft {
     incompleteReason: "",
     otherReasonText: "",
     notes: "",
+    createdByUserId: "",
+    createdBy: "",
+    dateCreated: "",
     proofUploadDocumentTitle: "",
   };
 }
@@ -276,18 +279,26 @@ function resolveProgrammeEvidenceTitle(file: ProgrammeEvidenceFile, pendingBatch
   return fromApi || "—";
 }
 
+function buildProgrammeProofDocumentTitle(programmeName: string, idPassport: string): string {
+  const programmePrefix = normalizeString(programmeName).slice(0, 3);
+  const idPassportValue = normalizeString(idPassport);
+
+  if (!programmePrefix || !idPassportValue) return "";
+  return `${programmePrefix}_${idPassportValue}`;
+}
+
 function proofFilePersistedOnServer(file: ProgrammeEvidenceFile): boolean {
   return file.beneficiaryProgrammeLinkDocumentId != null && !(file.file instanceof File);
 }
 
-/** True when Completed + Upload now but the shared document title field is empty (new uploads must wait for a title). */
 function isProofNewUploadBlockedByMissingTitle(
-  draft: Pick<ProgrammeLinkDraft, "completedProgramme" | "proofUploadPreference" | "proofUploadDocumentTitle">,
+  draft: Pick<ProgrammeLinkDraft, "completedProgramme" | "proofUploadPreference">,
+  generatedDocumentTitle: string,
 ): boolean {
   return (
     draft.completedProgramme === "Completed" &&
     draft.proofUploadPreference === "upload-now" &&
-    !normalizeString(draft.proofUploadDocumentTitle)
+    !normalizeString(generatedDocumentTitle)
   );
 }
 
@@ -523,6 +534,7 @@ function SearchableSelectField({
   onCustomChange,
   helperText,
   openWithFullList = false,
+  selectionOnly = false,
   resetToken,
 }: {
   label: string;
@@ -542,6 +554,7 @@ function SearchableSelectField({
   onCustomChange?: (value: string) => void;
   helperText?: string;
   openWithFullList?: boolean;
+  selectionOnly?: boolean;
   resetToken?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -576,15 +589,15 @@ function SearchableSelectField({
             onFocus={() => {
               if (disabled) return;
               setIsOpen(true);
-              setQuery(openWithFullList ? "" : selectedLabel);
+              setQuery(openWithFullList || selectionOnly ? "" : selectedLabel);
             }}
             onClick={() => {
               if (disabled) return;
               setIsOpen(true);
-              setQuery(openWithFullList ? "" : selectedLabel);
+              setQuery(openWithFullList || selectionOnly ? "" : selectedLabel);
             }}
             onChange={(e) => {
-              if (disabled) return;
+              if (disabled || selectionOnly) return;
               setIsOpen(true);
               setQuery(e.target.value);
             }}
@@ -596,9 +609,11 @@ function SearchableSelectField({
             }}
             placeholder={placeholder}
             disabled={disabled}
+            readOnly={selectionOnly}
             className={cn(
               profileInputClass(!!error),
               disabled && "cursor-not-allowed bg-slate-50 text-slate-400",
+              selectionOnly && !disabled && "cursor-pointer",
               "pr-11",
             )}
           />
@@ -632,7 +647,7 @@ function SearchableSelectField({
                   ))
                 ) : (
                   <div className="px-4 py-4 text-sm text-slate-500">
-                    No matches found. Try another search or add a custom value.
+                    {selectionOnly ? "No options available." : "No matches found. Try another search or add a custom value."}
                   </div>
                 )}
               </div>
@@ -830,6 +845,10 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingProgrammeDraft, setIsSavingProgrammeDraft] = useState(false);
   const [programmeDeletingClientId, setProgrammeDeletingClientId] = useState<string | null>(null);
+  // Form state (starts empty; will be populated from profile or prefill data)
+  const [formData, setFormData] = useState(() => createEmptyFormData());
+  const [savedSignaturePreview, setSavedSignaturePreview] = useState("");
+  const [isProgrammeProofDragActive, setIsProgrammeProofDragActive] = useState(false);
 
   useEffect(() => {
     if (isProgrammeEditorOpen) {
@@ -867,6 +886,23 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
       })),
     [programmeOptions.programmes],
   );
+  const getGeneratedProgrammeProofDocumentTitle = useCallback(
+    (row: ProgrammeLinkDraft) => {
+      const programmeName =
+        programmeOptions.programmes.find((option) => String(option.id) === row.programmeId)?.name ||
+        row.programmeName ||
+        "";
+
+      return buildProgrammeProofDocumentTitle(programmeName, formData.idPassport);
+    },
+    [formData.idPassport, programmeOptions.programmes],
+  );
+  const generatedProgrammeProofDocumentTitle = useMemo(
+    () => getGeneratedProgrammeProofDocumentTitle(programmeDraft),
+    [getGeneratedProgrammeProofDocumentTitle, programmeDraft],
+  );
+  const generatedProgrammeProofDocumentTitleRef = useRef(generatedProgrammeProofDocumentTitle);
+  generatedProgrammeProofDocumentTitleRef.current = generatedProgrammeProofDocumentTitle;
   const trainingProviderSearchOptions = useMemo<SearchableOption[]>(() => {
     const fromApi = programmeOptions.trainingProviders.map((option) => ({
       value: String(option.id ?? ""),
@@ -915,7 +951,8 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
     postalCodesRef.current = postalCodes;
   }, [postalCodes]);
 
-  const createEmptyFormData = () => ({
+  function createEmptyFormData() {
+    return {
     // Personal Details
     firstName: "",
     surname: "",
@@ -981,7 +1018,8 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
     unemploymentReason: "",
     signature: "",
     acceptedTerms: false,
-  });
+    };
+  }
 
   const getProgrammeFieldError = (clientId: string, field: string) =>
     validationErrors[`programme-${clientId}-${field}`];
@@ -1042,10 +1080,10 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
   );
   const programmeDraftNeedsCompletionFlow = useMemo(() => shouldCaptureProgrammeCompletion(), []);
 
-  /** Completed + Upload now: title must be filled before attaching new proof files. */
+  /** Completed + Upload now: generated title must exist before attaching new proof files. */
   const programmeProofNewUploadBlockedByMissingTitle = useMemo(
-    () => isProofNewUploadBlockedByMissingTitle(programmeDraft),
-    [programmeDraft.completedProgramme, programmeDraft.proofUploadPreference, programmeDraft.proofUploadDocumentTitle],
+    () => isProofNewUploadBlockedByMissingTitle(programmeDraft, generatedProgrammeProofDocumentTitle),
+    [generatedProgrammeProofDocumentTitle, programmeDraft],
   );
 
   useEffect(() => {
@@ -1124,14 +1162,15 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
     const errors: Record<string, string> = {};
     if (allowBlank && isProgrammeRowBlank(row)) return errors;
 
-    if (!row.programmeId && !nullableString(row.programmeName)) {
-      errors[`programme-${row.clientId}-programme`] = "Select or type a programme";
+    if (!row.programmeId) {
+      errors[`programme-${row.clientId}-programme`] = "Select a programme";
     }
-    if (!row.trainingProviderId && !nullableString(row.trainingProviderName)) {
-      errors[`programme-${row.clientId}-trainingProvider`] = "Select or type a provider";
-    }
-    if (!row.employerId && !nullableString(row.employerName)) {
-      errors[`programme-${row.clientId}-employer`] = "Select or type an employer";
+    const hasTrainingProvider = !!row.trainingProviderId || !!nullableString(row.trainingProviderName);
+    const hasEmployer = !!row.employerId || !!nullableString(row.employerName);
+    if (!hasTrainingProvider && !hasEmployer) {
+      const providerOrEmployerError = "Select or type at least one: training provider or employer";
+      errors[`programme-${row.clientId}-trainingProvider`] = providerOrEmployerError;
+      errors[`programme-${row.clientId}-employer`] = providerOrEmployerError;
     }
     if (!row.startDate) {
       errors[`programme-${row.clientId}-startDate`] = "Start date is required";
@@ -1159,10 +1198,10 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
         row.completedProgramme === "Completed" &&
         row.proofUploadPreference === "upload-now" &&
         hasPendingProofUploads &&
-        isProofNewUploadBlockedByMissingTitle(row)
+        isProofNewUploadBlockedByMissingTitle(row, getGeneratedProgrammeProofDocumentTitle(row))
       ) {
         errors[`programme-${row.clientId}-proofUploadDocumentTitle`] =
-          "Enter a document title before uploading proof documents";
+          "Select a programme and capture ID/Passport Nr before uploading proof documents";
       }
 
       if (isProgrammeStatusNeedingReason(row.completedProgramme) && (!row.completionReasonId || !row.incompleteReason)) {
@@ -1175,20 +1214,21 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
     }
 
     return errors;
-  }, []);
+  }, [getGeneratedProgrammeProofDocumentTitle]);
 
   const PROGRAMME_EDITOR_DETAILS_FIELDS = ["programme", "trainingProvider", "employer", "startDate", "endDate"] as const;
 
   const buildProgrammeDetailsValidationErrors = useCallback((row: ProgrammeLinkDraft) => {
     const errors: Record<string, string> = {};
-    if (!row.programmeId && !nullableString(row.programmeName)) {
-      errors[`programme-${row.clientId}-programme`] = "Select or type a programme";
+    if (!row.programmeId) {
+      errors[`programme-${row.clientId}-programme`] = "Select a programme";
     }
-    if (!row.trainingProviderId && !nullableString(row.trainingProviderName)) {
-      errors[`programme-${row.clientId}-trainingProvider`] = "Select or type a provider";
-    }
-    if (!row.employerId && !nullableString(row.employerName)) {
-      errors[`programme-${row.clientId}-employer`] = "Select or type an employer";
+    const hasTrainingProvider = !!row.trainingProviderId || !!nullableString(row.trainingProviderName);
+    const hasEmployer = !!row.employerId || !!nullableString(row.employerName);
+    if (!hasTrainingProvider && !hasEmployer) {
+      const providerOrEmployerError = "Select or type at least one: training provider or employer";
+      errors[`programme-${row.clientId}-trainingProvider`] = providerOrEmployerError;
+      errors[`programme-${row.clientId}-employer`] = providerOrEmployerError;
     }
     if (!row.startDate) {
       errors[`programme-${row.clientId}-startDate`] = "Start date is required";
@@ -1241,11 +1281,16 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
     (files: File[]) => {
       if (files.length === 0) return;
 
-      if (isProofNewUploadBlockedByMissingTitle(programmeDraftRef.current)) {
+      if (
+        isProofNewUploadBlockedByMissingTitle(
+          programmeDraftRef.current,
+          generatedProgrammeProofDocumentTitleRef.current,
+        )
+      ) {
         addNotification({
           type: "warning",
-          title: "Document title required",
-          message: "Enter a document title above before uploading proof documents.",
+          title: "Document title unavailable",
+          message: "Select a programme and ensure ID/Passport Nr is captured before uploading proof documents.",
         });
         return;
       }
@@ -1317,12 +1362,12 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
         return;
       }
 
-      const titleForReplace = normalizeString(draftSnapshot.proofUploadDocumentTitle);
+      const titleForReplace = normalizeString(generatedProgrammeProofDocumentTitleRef.current);
       if (!titleForReplace) {
         addNotification({
           type: "warning",
-          title: "Document title required",
-          message: "Enter a document title before replacing this proof.",
+          title: "Document title unavailable",
+          message: "Select a programme and ensure ID/Passport Nr is captured before replacing this proof.",
         });
         return;
       }
@@ -1608,17 +1653,16 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
         .filter((file): file is File => file instanceof File);
 
       if (newFiles.length > 0) {
-        const trimmedTitle =
-          typeof row.proofUploadDocumentTitle === "string" ? row.proofUploadDocumentTitle.replace(/\u00a0/g, " ").trim() : "";
+        const trimmedTitle = getGeneratedProgrammeProofDocumentTitle(row);
         if (!trimmedTitle) {
-          throw new Error("Document title is required for uploaded proof documents.");
+          throw new Error("Select a programme and capture ID/Passport Nr before uploading proof documents.");
         }
         await uploadBeneficiaryProgrammeLinkDocuments(programmeLinkId, newFiles, {
           documentTitle: trimmedTitle,
         });
       }
     },
-    [],
+    [getGeneratedProgrammeProofDocumentTitle],
   );
 
   const loadProgrammeRowForEdit = useCallback(
@@ -1649,6 +1693,17 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
     },
     [clearAll, clearProgrammeValidationErrors, ensureProgrammeCompletionReasonsLoaded, programmeLinks],
   );
+
+  const refreshProgrammeLinksFromServer = useCallback(async () => {
+    const links =
+      isAdminView && effectiveBeneficiaryId
+        ? await listAdminBeneficiaryProgrammeLinks(effectiveBeneficiaryId)
+        : await listBeneficiaryProgrammeLinks();
+    const hydratedLinks = await hydrateBeneficiaryProgrammeLinks(links);
+    setProgrammeLinks(hydratedLinks);
+    setDeletedProgrammeLinkIds([]);
+    return hydratedLinks;
+  }, [effectiveBeneficiaryId, isAdminView]);
 
   useEffect(() => {
     if (isAdminView) return;
@@ -1711,21 +1766,7 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
       try {
         await updateBeneficiaryProgrammeLink(programmeLinkId, buildProgrammePayload(mergedEditRow));
         await persistProgrammeLinkDocumentChanges(mergedEditRow, programmeLinkId);
-        const documents = await listBeneficiaryProgrammeLinkDocuments(programmeLinkId);
-        const refreshedProofFiles = documents.map((doc) => mapLinkDocumentToEvidenceFile(doc));
-
-        setProgrammeLinks((current) =>
-          current.map((row) =>
-            row.clientId === editingProgrammeClientId
-              ? {
-                  ...mergedEditRow,
-                  proofFiles: refreshedProofFiles,
-                  deletedDocumentIds: [],
-                  proofUploadDocumentTitle: "",
-                }
-              : row,
-          ),
-        );
+        await refreshProgrammeLinksFromServer();
 
         addNotification({
           type: "success",
@@ -1772,19 +1813,7 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
           beneficiaryProgrammeLinkId: programmeLinkId,
         };
         await persistProgrammeLinkDocumentChanges(rowForDocs, programmeLinkId);
-        const documents = await listBeneficiaryProgrammeLinkDocuments(programmeLinkId);
-        const refreshedProofFiles = documents.map((doc) => mapLinkDocumentToEvidenceFile(doc));
-
-        setProgrammeLinks((current) => [
-          ...current,
-          {
-            ...programmeDraft,
-            beneficiaryProgrammeLinkId: programmeLinkId,
-            proofFiles: refreshedProofFiles,
-            deletedDocumentIds: [],
-            proofUploadDocumentTitle: "",
-          },
-        ]);
+        await refreshProgrammeLinksFromServer();
 
         addNotification({
           type: "success",
@@ -1846,6 +1875,7 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
     hasProfile,
     persistProgrammeLinkDocumentChanges,
     programmeDraft,
+    refreshProgrammeLinksFromServer,
     resetProgrammeDraft,
     validateProgrammeRow,
   ]);
@@ -3357,11 +3387,6 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
       cancelled = true;
     };
   }, []);
-
-  // Form state (starts empty; will be populated from profile or prefill data)
-  const [formData, setFormData] = useState(() => createEmptyFormData());
-  const [savedSignaturePreview, setSavedSignaturePreview] = useState("");
-  const [isProgrammeProofDragActive, setIsProgrammeProofDragActive] = useState(false);
 
   // If the logged-in user changes, reset any previous user's values immediately.
   useEffect(() => {
@@ -4911,13 +4936,14 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
                               >
                             <SearchableSelectField
                               label="Programme"
-                              placeholder="Type to search programmes"
+                              placeholder="Select a programme"
                               value={programmeDraft.programmeId}
                               selectedLabel={
                                 programmeSearchOptions.find((option) => option.value === programmeDraft.programmeId)?.label ?? ""
                               }
                               options={programmeSearchOptions}
                               openWithFullList
+                              selectionOnly
                               resetToken={`programme-${programmeDraftCustomFields.programme}-${programmeDraft.programmeId}-${programmeDraft.programmeName}`}
                               onSelect={(nextProgrammeId) => {
                                 updateProgrammeDraft((current) => ({
@@ -4931,38 +4957,6 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
                                 }));
                               }}
                               error={getProgrammeFieldError(programmeDraft.clientId, "programme")}
-                              customVisible={programmeDraftCustomFields.programme}
-                              customTriggerLabel="Can't find the programme? Click here to add manually"
-                              customInputPlaceholder="Type programme manually"
-                              customValue={programmeDraft.programmeName}
-                              onShowCustom={() => {
-                                showProgrammeDraftCustomField("programme");
-                                updateProgrammeDraft((current) => ({
-                                  ...current,
-                                  programmeId: "",
-                                  qualificationId: "",
-                                  qualificationName: "",
-                                }));
-                                setProgrammeDraftCustomFields((current) => ({ ...current, qualification: true }));
-                              }}
-                              onHideCustom={() => {
-                                hideProgrammeDraftCustomField("programme");
-                                updateProgrammeDraft((current) => ({
-                                  ...current,
-                                  programmeName: "",
-                                  qualificationId: "",
-                                  qualificationName: "",
-                                }));
-                                setProgrammeDraftCustomFields((current) => ({ ...current, qualification: false }));
-                              }}
-                              onCustomChange={(value) =>
-                                updateProgrammeDraft((current) => ({
-                                  ...current,
-                                  programmeName: value,
-                                  programmeId: "",
-                                  qualificationId: "",
-                                }))
-                              }
                             />
 
                             <SearchableSelectField
@@ -5283,43 +5277,6 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
 
                                       {programmeDraft.proofUploadPreference === "upload-now" && (
                                       <div className="mt-4 space-y-4">
-                                        <div className="space-y-2">
-                                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                                            Document Title <span className="font-bold text-red-600">*</span>
-                                          </p>
-                                          <input
-                                            type="text"
-                                            maxLength={200}
-                                            required
-                                            placeholder="e.g. Proof of enrolment"
-                                            value={programmeDraft.proofUploadDocumentTitle}
-                                            onChange={(e) =>
-                                              updateProgrammeDraft((current) => ({
-                                                ...current,
-                                                proofUploadDocumentTitle: e.target.value,
-                                              }))
-                                            }
-                                            className={profileInputClass(
-                                              !!getProgrammeFieldError(programmeDraft.clientId, "proofUploadDocumentTitle"),
-                                            )}
-                                            aria-label="Document title for uploads (required when adding or replacing proof files)"
-                                          />
-                                          {getProgrammeFieldError(programmeDraft.clientId, "proofUploadDocumentTitle") ? (
-                                            <p className="text-xs font-medium text-red-600">
-                                              {getProgrammeFieldError(programmeDraft.clientId, "proofUploadDocumentTitle")}
-                                            </p>
-                                          ) : programmeProofNewUploadBlockedByMissingTitle ? (
-                                            <p className="text-xs font-medium text-red-600">
-                                              Please enter a document title first, it is required before you can attach new
-                                              documents. Use Update below to replace an existing saved document.
-                                            </p>
-                                          ) : (
-                                            <p className="text-xs text-slate-500">
-                                              Same title applies to each new proof file in this upload batch.
-                                            </p>
-                                          )}
-                                        </div>
-
                                         <div
                                           onDragEnter={handleProgrammeProofDragEnter}
                                           onDragOver={handleProgrammeProofDragOver}
@@ -5374,7 +5331,7 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
                                         />
                                         <p id="programme-proof-upload-hint" className="text-xs text-slate-500">
                                           {programmeProofNewUploadBlockedByMissingTitle
-                                            ? "Add a title above before browsing or dragging new files onto this control."
+                                            ? "Select a programme and capture ID/Passport Nr before browsing or dragging new files onto this control."
                                             : "Drag and drop files here or click to browse. Supported formats: PDF, JPG, PNG, DOC, DOCX"}
                                         </p>
 
@@ -5435,7 +5392,7 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
                                                       <td className="max-w-[12rem] break-words px-3 py-2.5 text-slate-700">
                                                         {resolveProgrammeEvidenceTitle(
                                                           file,
-                                                          programmeDraft.proofUploadDocumentTitle,
+                                                          generatedProgrammeProofDocumentTitle,
                                                         )}
                                                       </td>
                                                       <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">
@@ -5470,7 +5427,7 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
                                                               )
                                                             }
                                                             className="text-sm font-semibold text-[#017f3f] underline decoration-[#017f3f]/30 underline-offset-2 transition hover:text-[#016533] disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
-                                                            title="Pick a new file for this proof. Document title above is required before replacing."
+                                                            title="Pick a new file for this proof."
                                                           >
                                                             {replacingThisProofRow ? "Updating…" : "Update"}
                                                           </button>

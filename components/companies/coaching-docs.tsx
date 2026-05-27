@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { TextBoxComponent } from '@syncfusion/ej2-react-inputs';
 import { DatePickerComponent } from '@syncfusion/ej2-react-calendars';
 import Button from '@/components/ui/button';
+import {
+    preventInvalidDateInputBeforeInput,
+    preventInvalidDateInputKeyDown,
+    preventInvalidDateInputPaste,
+} from '@/components/ui/SyncfusionIsoDatePicker';
 
 import { CompanyBusinessCoachingHeader2 } from '@/types/business-coaching';
 
@@ -127,7 +132,11 @@ const CoachingDocs: React.FC<CoachingDocsProps> = ({ onSave, isEditMode = false,
                                 type="text"
                             />
                         </div>
-                        <div>
+                        <div
+                            onBeforeInputCapture={preventInvalidDateInputBeforeInput}
+                            onKeyDownCapture={preventInvalidDateInputKeyDown}
+                            onPasteCapture={preventInvalidDateInputPaste}
+                        >
                             <label className="block text-sm font-medium text-gray-700 mb-1">Date Submitted</label>
                             <DatePickerComponent
                                 id="coaching-date"
