@@ -7,10 +7,14 @@ import axios from 'axios';
 import { ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useQuery } from '@tanstack/react-query';
 import { adminFormTheme } from '@/components/admin/adminFormTheme';
-import { useFormFeedbackList } from '@/hooks/useFormFeedback';
+import { useFormFeedbackAssignmentsList } from '@/hooks/useFormFeedback';
 import { listManageForms } from '@/api/formBuilder';
 import { exportRowsToExcel } from '@/ultis/exportExcel';
-import type { FormFeedbackListParams, FormFeedbackRecipientType } from '@/types/formFeedback';
+import type {
+  FeedbackCompletionStatus,
+  FormFeedbackListParams,
+  FormFeedbackRecipientType,
+} from '@/types/formFeedback';
 
 function apiErr(e: unknown): string {
   if (axios.isAxiosError(e)) {
@@ -31,7 +35,11 @@ function recipientLabel(type: FormFeedbackRecipientType): string {
   return 'Unknown';
 }
 
-function formatSubmittedAt(value: string): string {
+function completionLabel(status: FeedbackCompletionStatus): string {
+  return status === 'completed' ? 'Completed' : 'Pending';
+}
+
+function formatSubmittedAt(value?: string | null): string {
   if (!value) return '—';
   return value.slice(0, 16).replace('T', ' ');
 }
@@ -46,6 +54,7 @@ export default function FormFeedbackListAdmin() {
   const [recipientType, setRecipientType] = useState('');
   const [distributionId, setDistributionId] = useState(initialDistributionId);
   const [search, setSearch] = useState('');
+  const [completionStatus, setCompletionStatus] = useState('');
   const [submittedFrom, setSubmittedFrom] = useState('');
   const [submittedTo, setSubmittedTo] = useState('');
 
@@ -63,14 +72,15 @@ export default function FormFeedbackListAdmin() {
       formId: formId || null,
       distributionId: distributionId.trim() || null,
       recipientType: (recipientType || null) as FormFeedbackRecipientType | null,
+      completionStatus: (completionStatus || null) as FeedbackCompletionStatus | null,
       search: search.trim() || null,
       submittedFrom: submittedFrom || null,
       submittedTo: submittedTo || null,
     }),
-    [page, pageSize, formId, distributionId, recipientType, search, submittedFrom, submittedTo],
+    [page, pageSize, formId, distributionId, recipientType, completionStatus, search, submittedFrom, submittedTo],
   );
 
-  const { data, isLoading, isFetching, error, refetch } = useFormFeedbackList(listParams);
+  const { data, isLoading, isFetching, error, refetch } = useFormFeedbackAssignmentsList(listParams);
 
   const formsQuery = useQuery({
     queryKey: ['form-builder', 'manage-list'],
@@ -92,6 +102,7 @@ export default function FormFeedbackListAdmin() {
         Name: r.fullName ?? '',
         Email: r.email ?? '',
         Cellphone: r.cellphone ?? '',
+        'Completion status': completionLabel(r.completionStatus),
         'Answers summary': r.answersSummary ?? '',
         'Distribution ID': r.distributionId ?? '',
       })),
@@ -106,7 +117,7 @@ export default function FormFeedbackListAdmin() {
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900">Feedback</h1>
             <p className="mt-1 text-sm text-slate-600">
-              Completed form responses from beneficiaries and external recipients.
+              All form assignments and completion status for beneficiaries and external recipients.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -179,6 +190,21 @@ export default function FormFeedbackListAdmin() {
             />
           </div>
           <div>
+            <label className={adminFormTheme.label}>Completion status</label>
+            <select
+              value={completionStatus}
+              onChange={(e) => {
+                setCompletionStatus(e.target.value);
+                setPage(1);
+              }}
+              className={adminFormTheme.select}
+            >
+              <option value="">All</option>
+              <option value="pending">Pending</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <div>
             <label className={adminFormTheme.label}>Search</label>
             <input
               type="search"
@@ -233,7 +259,7 @@ export default function FormFeedbackListAdmin() {
                   <th className="px-3 py-2.5">Recipient</th>
                   <th className="px-3 py-2.5">Name</th>
                   <th className="px-3 py-2.5">Email</th>
-                  <th className="px-3 py-2.5">Cellphone</th>
+                  <th className="px-3 py-2.5">Status</th>
                   <th className="px-3 py-2.5">Distribution</th>
                   <th className="px-3 py-2.5 text-right">Actions</th>
                 </tr>
@@ -248,18 +274,28 @@ export default function FormFeedbackListAdmin() {
                 ) : rows.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
-                      No completed responses yet.
+                      No form assignments yet.
                     </td>
                   </tr>
                 ) : (
                   rows.map((r) => (
-                    <tr key={r.responseId} className="hover:bg-emerald-50/30">
+                    <tr key={r.assignmentId} className="hover:bg-emerald-50/30">
                       <td className="px-3 py-2.5 text-slate-600">{formatSubmittedAt(r.submittedAt)}</td>
                       <td className="px-3 py-2.5 font-medium text-slate-900">{r.formTitle}</td>
                       <td className="px-3 py-2.5 text-slate-600">{recipientLabel(r.recipientType)}</td>
                       <td className="px-3 py-2.5 text-slate-600">{r.fullName?.trim() || '—'}</td>
                       <td className="px-3 py-2.5 text-slate-600">{r.email?.trim() || '—'}</td>
-                      <td className="px-3 py-2.5 text-slate-600">{r.cellphone?.trim() || '—'}</td>
+                      <td className="px-3 py-2.5">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            r.completionStatus === 'completed'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-amber-50 text-amber-700'
+                          }`}
+                        >
+                          {completionLabel(r.completionStatus)}
+                        </span>
+                      </td>
                       <td className="px-3 py-2.5 text-slate-600">
                         {r.distributionId ? (
                           <Link
@@ -273,12 +309,16 @@ export default function FormFeedbackListAdmin() {
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-right">
-                        <Link
-                          href={`/dashboard/admin/form-feedback/${encodeURIComponent(r.responseId)}`}
-                          className="text-sm font-semibold text-hwseta-green hover:underline"
-                        >
-                          View
-                        </Link>
+                        {r.completionStatus === 'completed' && r.responseId ? (
+                          <Link
+                            href={`/dashboard/admin/form-feedback/${encodeURIComponent(r.responseId)}`}
+                            className="text-sm font-semibold text-hwseta-green hover:underline"
+                          >
+                            View
+                          </Link>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                     </tr>
                   ))

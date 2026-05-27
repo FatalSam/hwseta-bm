@@ -303,11 +303,15 @@ flowchart TB
 
 ## 8. Feedback (completed responses)
 
-**Components:** `FormFeedbackListAdmin`, `FormFeedbackDetailAdmin`
+**Components:** `FormFeedbackListAdmin`, `FormFeedbackDetailAdmin`, `BeneficiaryFeedbackFormsPanel`, `BeneficiaryFeedbackFormDetail`
 
-**API:** `GET /api/manage/form-builder/responses` (see [FORM_BUILDER_DISTRIBUTIONS_API.md](./FORM_BUILDER_DISTRIBUTIONS_API.md) §16).
+**Beneficiary route:** `/dashboard/beneficiary/feedback-forms` — inbox of forms sent to the logged-in beneficiary with **Pending** / **Completed** status. **View answers** when completed.
 
-Public submit sends `distributionId` and `notificationId` from query string. Mock layer (`data/mockFormFeedback.ts`) records submits when API is offline.
+**Admin route:** `/dashboard/admin/form-feedback` — all assignments (beneficiary + external) with completion status filter.
+
+**API:** `GET /api/manage/form-builder/feedback-assignments`, `GET /api/beneficiary/feedback-forms` (see [FORM_BUILDER_DISTRIBUTIONS_API.md](./FORM_BUILDER_DISTRIBUTIONS_API.md) §16).
+
+Public submit sends `distributionId` and `notificationId` from query string. Mock layer records submits and updates completion when API is offline.
 
 ---
 

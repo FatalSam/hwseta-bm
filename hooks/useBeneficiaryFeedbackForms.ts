@@ -1,5 +1,8 @@
+'use client';
+
 import { useQuery } from '@tanstack/react-query';
 import {
+  getMyFeedbackFormResponse,
   listAdminBeneficiaryFeedbackForms,
   listMyFeedbackForms,
 } from '@/api/beneficiaryFeedbackForms';
@@ -11,6 +14,8 @@ export const beneficiaryFeedbackFormsKeys = {
     [...beneficiaryFeedbackFormsKeys.all, 'mine', params] as const,
   adminBeneficiary: (beneficiaryId: string, params: BeneficiaryFeedbackFormsParams) =>
     [...beneficiaryFeedbackFormsKeys.all, 'admin-beneficiary', beneficiaryId, params] as const,
+  detail: (responseId: string) =>
+    [...beneficiaryFeedbackFormsKeys.all, 'detail', responseId] as const,
 };
 
 export function useMyFeedbackForms(params: BeneficiaryFeedbackFormsParams) {
@@ -29,6 +34,15 @@ export function useAdminBeneficiaryFeedbackForms(
     queryKey: beneficiaryFeedbackFormsKeys.adminBeneficiary(beneficiaryId ?? '', params),
     queryFn: () => listAdminBeneficiaryFeedbackForms(beneficiaryId!, params),
     enabled: !!beneficiaryId?.trim(),
+    retry: false,
+  });
+}
+
+export function useMyFeedbackFormDetail(responseId: string | null) {
+  return useQuery({
+    queryKey: beneficiaryFeedbackFormsKeys.detail(responseId ?? ''),
+    queryFn: () => getMyFeedbackFormResponse(responseId!),
+    enabled: !!responseId?.trim(),
     retry: false,
   });
 }

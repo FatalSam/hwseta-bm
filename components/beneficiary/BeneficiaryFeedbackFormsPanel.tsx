@@ -1,23 +1,29 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 import {
-  listAdminBeneficiaryFeedbackForms,
-  listMyFeedbackForms,
-} from '@/api/beneficiaryFeedbackForms';
+  useAdminBeneficiaryFeedbackForms,
+  useMyFeedbackForms,
+} from '@/hooks/useBeneficiaryFeedbackForms';
 import type { BeneficiaryFeedbackFormRow } from '@/types/beneficiaryFeedbackForms';
+import type { FeedbackCompletionStatus } from '@/types/formFeedback';
+import { buildFeedbackFormActionHref } from '@/lib/publicPortalPaths';
 
 type Props = {
   beneficiaryId?: string | null;
   layout?: 'page' | 'embed';
 };
 
-const STATUS_OPTIONS = ['', 'pending', 'sent', 'delivered', 'failed'];
+const COMPLETION_FILTER_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'All statuses' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'completed', label: 'Completed' },
+];
 
 function formatDate(value?: string | null): string {
-  if (!value) return 'Not sent yet';
+  if (!value) return '—';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return d.toLocaleDateString(undefined, {
@@ -27,11 +33,14 @@ function formatDate(value?: string | null): string {
   });
 }
 
-function statusClass(status: string): string {
-  const s = status.toLowerCase();
-  if (s === 'sent' || s === 'delivered') return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
-  if (s === 'failed') return 'bg-red-50 text-red-700 ring-red-200';
-  return 'bg-amber-50 text-amber-700 ring-amber-200';
+function completionClass(status: FeedbackCompletionStatus): string {
+  return status === 'completed'
+    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+    : 'bg-amber-50 text-amber-700 ring-amber-200';
+}
+
+function completionLabel(status: FeedbackCompletionStatus): string {
+  return status === 'completed' ? 'Completed' : 'Pending';
 }
 
 function channelLabel(row: BeneficiaryFeedbackFormRow): string {
@@ -41,8 +50,7 @@ function channelLabel(row: BeneficiaryFeedbackFormRow): string {
 }
 
 function actionHref(row: BeneficiaryFeedbackFormRow): string {
-  if (row.formLink) return row.formLink;
-  return `/form/${encodeURIComponent(row.formId)}?d=${encodeURIComponent(row.distributionId)}`;
+  return buildFeedbackFormActionHref(row);
 }
 
 function apiErr(error: unknown): string {
@@ -51,33 +59,38 @@ function apiErr(error: unknown): string {
 
 export default function BeneficiaryFeedbackFormsPanel({ beneficiaryId, layout = 'page' }: Props) {
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState('');
+  const [completionStatus, setCompletionStatus] = useState('');
   const [search, setSearch] = useState('');
   const pageSize = layout === 'embed' ? 10 : 20;
   const params = useMemo(
     () => ({
       page,
       pageSize,
-      status: status || null,
+      completionStatus: (completionStatus || null) as FeedbackCompletionStatus | null,
       search: search || null,
     }),
-    [page, pageSize, search, status],
+    [page, pageSize, search, completionStatus],
   );
 
-  const query = useQuery({
-    queryKey: ['beneficiary-feedback-forms', beneficiaryId ? 'admin' : 'mine', beneficiaryId ?? '', params],
-    queryFn: () =>
-      beneficiaryId
-        ? listAdminBeneficiaryFeedbackForms(beneficiaryId, params)
-        : listMyFeedbackForms(params),
-    enabled: !beneficiaryId || !!beneficiaryId.trim(),
-    retry: false,
-  });
+  const mineQuery = useMyFeedbackForms(params);
+  const adminQuery = useAdminBeneficiaryFeedbackForms(beneficiaryId, params);
+  const query = beneficiaryId ? adminQuery : mineQuery;
 
-  const rows = query.data?.items ?? [];
+  const rows = useMemo(() => query.data?.items ?? [], [query.data?.items]);
   const total = query.data?.totalCount ?? 0;
   const totalPages = query.data?.totalPages ?? 1;
   const isEmbed = layout === 'embed';
+
+  const summary = useMemo(() => {
+    const pending = rows.filter((r) => r.completionStatus === 'pending').length;
+    const completed = rows.filter((r) => r.completionStatus === 'completed').length;
+    return { pending, completed };
+  }, [rows]);
+
+  const detailHref = (responseId: string) =>
+    beneficiaryId
+      ? `/dashboard/admin/form-feedback/${encodeURIComponent(responseId)}`
+      : `/dashboard/beneficiary/feedback-forms/${encodeURIComponent(responseId)}`;
 
   return (
     <section className={isEmbed ? 'min-w-0' : 'mx-auto max-w-[1100px] px-4 py-8 sm:px-6 lg:px-8'}>
@@ -89,8 +102,15 @@ export default function BeneficiaryFeedbackFormsPanel({ beneficiaryId, layout = 
               Feedback Forms
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Forms sent to this beneficiary for completion.
+              {beneficiaryId
+                ? 'Forms sent to this beneficiary for completion.'
+                : 'Forms sent to you — complete pending forms or review your submissions.'}
             </p>
+            {!query.isLoading && rows.length > 0 ? (
+              <p className="mt-2 text-xs font-medium text-slate-500">
+                {summary.pending} pending · {summary.completed} completed
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
@@ -104,16 +124,16 @@ export default function BeneficiaryFeedbackFormsPanel({ beneficiaryId, layout = 
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-hwseta-green focus:ring-2 focus:ring-hwseta-green/15"
             />
             <select
-              value={status}
+              value={completionStatus}
               onChange={(e) => {
-                setStatus(e.target.value);
+                setCompletionStatus(e.target.value);
                 setPage(1);
               }}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-hwseta-green focus:ring-2 focus:ring-hwseta-green/15"
             >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s || 'all'} value={s}>
-                  {s ? s[0].toUpperCase() + s.slice(1) : 'All statuses'}
+              {COMPLETION_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value || 'all'} value={opt.value}>
+                  {opt.label}
                 </option>
               ))}
             </select>
@@ -131,9 +151,9 @@ export default function BeneficiaryFeedbackFormsPanel({ beneficiaryId, layout = 
             <thead className="bg-hwseta-green text-xs font-semibold uppercase text-white shadow-sm">
               <tr>
                 <th className="px-3 py-3">Form</th>
-                <th className="px-3 py-3">Channels</th>
                 <th className="px-3 py-3">Status</th>
                 <th className="px-3 py-3">Sent</th>
+                <th className="px-3 py-3">Submitted</th>
                 <th className="px-3 py-3 text-right">Action</th>
               </tr>
             </thead>
@@ -160,29 +180,40 @@ export default function BeneficiaryFeedbackFormsPanel({ beneficiaryId, layout = 
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={`${row.distributionId}-${row.formId}`} className="hover:bg-emerald-50/30">
+                  <tr key={`${row.distributionId}-${row.formId}-${row.notificationId ?? 'x'}`} className="hover:bg-emerald-50/30">
                     <td className="px-3 py-3">
                       <p className="font-semibold text-slate-900">{row.formTitle}</p>
                       <p className="mt-0.5 text-xs text-slate-500">
-                        {row.programmeName || row.qualificationName || 'General feedback'}
+                        {row.programmeName || row.qualificationName || channelLabel(row)}
                       </p>
                     </td>
-                    <td className="px-3 py-3 text-slate-600">{channelLabel(row)}</td>
                     <td className="px-3 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize ring-1 ${statusClass(row.status)}`}>
-                        {row.status}
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${completionClass(row.completionStatus)}`}
+                      >
+                        {completionLabel(row.completionStatus)}
                       </span>
                     </td>
                     <td className="px-3 py-3 text-slate-600">{formatDate(row.sentAt ?? row.createdAt)}</td>
+                    <td className="px-3 py-3 text-slate-600">{formatDate(row.submittedAt)}</td>
                     <td className="px-3 py-3 text-right">
-                      <a
-                        href={actionHref(row)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-hwseta-green hover:underline"
-                      >
-                        Open form
-                      </a>
+                      {row.completionStatus === 'completed' && row.responseId ? (
+                        <Link
+                          href={detailHref(row.responseId)}
+                          className="font-semibold text-hwseta-green hover:underline"
+                        >
+                          View answers
+                        </Link>
+                      ) : (
+                        <a
+                          href={actionHref(row)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-hwseta-green hover:underline"
+                        >
+                          Complete form
+                        </a>
+                      )}
                     </td>
                   </tr>
                 ))

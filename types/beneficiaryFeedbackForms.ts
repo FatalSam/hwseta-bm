@@ -1,4 +1,4 @@
-import type { NotificationStatus } from '@/types/formSubmissions';
+import type { FeedbackCompletionStatus } from '@/types/formFeedback';
 
 export interface BeneficiaryFeedbackFormRow {
   distributionId: string;
@@ -10,10 +10,15 @@ export interface BeneficiaryFeedbackFormRow {
   qualificationId?: number | null;
   qualificationName?: string | null;
   channels: string[];
-  status: NotificationStatus | string;
+  /** @deprecated use deliveryStatus */
+  status: string;
+  deliveryStatus?: string | null;
+  completionStatus: FeedbackCompletionStatus;
   createdAt: string;
   sentAt?: string | null;
+  submittedAt?: string | null;
   notificationId?: string | null;
+  responseId?: string | null;
   beneficiaryId?: string | null;
   fullName?: string | null;
   email?: string | null;
@@ -26,6 +31,9 @@ export interface BeneficiaryFeedbackFormRow {
 export interface BeneficiaryFeedbackFormsParams {
   page?: number;
   pageSize?: number;
+  /** Filter by completion: pending | completed */
+  completionStatus?: FeedbackCompletionStatus | null;
+  /** @deprecated use completionStatus — kept for API compat */
   status?: string | null;
   search?: string | null;
 }

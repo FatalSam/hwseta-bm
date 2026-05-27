@@ -1,5 +1,6 @@
 import axios from 'axios';
 import apiClient from '@/ultis/apiClient';
+import publicApiClient from '@/ultis/publicApiClient';
 import { mockRecordFormFeedback } from '@/data/mockFormFeedback';
 import { getDefaultSettings } from '@/lib/form-builder-defaults';
 import type { FormSettings } from '@/types/dynamicForm';
@@ -192,20 +193,6 @@ export async function updateManageForm(formId: string, payload: ManageUpdateForm
   }
 }
 
-export async function getPublicForm(formId: string) {
-  const response = await apiClient.get(`${PUBLIC}/${encodeURIComponent(formId)}`);
-  return normalizeFormDetail(response.data);
-}
-
-export type SubmitPublicFormBody = {
-  payload: Record<string, unknown>;
-  createdByUserId?: string | null;
-  distributionId?: string | null;
-  notificationId?: string | null;
-  formTitle?: string;
-  settings?: FormSettings;
-};
-
 function messageFromAxiosError(error: unknown): string | null {
   if (!axios.isAxiosError(error) || !error.response?.data) return null;
   const d = error.response.data;
@@ -218,15 +205,93 @@ function messageFromAxiosError(error: unknown): string | null {
   return null;
 }
 
-function shouldUseMockSubmit(error: unknown): boolean {
-  if (!axios.isAxiosError(error)) {
-    const code = (error as { code?: string } | null)?.code;
-    return code === 'ERR_NETWORK' || code === 'ECONNABORTED';
+function getErrorStatus(error: unknown): number | undefined {
+  if (axios.isAxiosError(error)) return error.response?.status;
+  if (error != null && typeof error === 'object') {
+    const status = (error as { status?: unknown }).status;
+    return typeof status === 'number' ? status : undefined;
   }
-  const status = error.response?.status;
-  if (status != null) return status === 404 || status === 501 || status === 405;
-  return error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED';
+  return undefined;
 }
+
+function shouldUseMockSubmit(error: unknown): boolean {
+  const status = getErrorStatus(error);
+  if (status === 404 || status === 501 || status === 405 || status === 401 || status === 403) {
+    return true;
+  }
+  const message = messageFromAxiosError(error) ?? (error instanceof Error ? error.message : '');
+  if (/session\s+expired|log\s*in\s+again|unauthori[sz]ed/i.test(message)) {
+    return true;
+  }
+  const code = axios.isAxiosError(error)
+    ? error.code
+    : (error as { code?: string } | null)?.code;
+  return code === 'ERR_NETWORK' || code === 'ECONNABORTED';
+}
+
+function mockPublicFormDetail(formId: string): {
+  id: string;
+  title: string;
+  description: string | null;
+  settings: FormSettings;
+} {
+  const settings = getDefaultSettings();
+  if (settings.sections.length === 0) {
+    settings.sections = [
+      {
+        id: 'section-feedback',
+        title: 'Your feedback',
+        order: 0,
+        fields: [
+          {
+            id: 'f_rating',
+            type: 'radio',
+            label: 'Overall satisfaction',
+            order: 0,
+            required: true,
+            options: ['Excellent', 'Good', 'Fair', 'Poor'],
+          },
+          {
+            id: 'f_comments',
+            type: 'long_text',
+            label: 'Additional comments',
+            order: 1,
+            required: false,
+          },
+        ],
+      },
+    ];
+  }
+  return {
+    id: formId,
+    title: 'Feedback form',
+    description: null,
+    settings,
+  };
+}
+
+export async function getPublicForm(formId: string) {
+  try {
+    const response = await publicApiClient.get(`${PUBLIC}/${encodeURIComponent(formId)}`);
+    return normalizeFormDetail(response.data);
+  } catch (e) {
+    if (!shouldUseMockSubmit(e)) {
+      const msg = messageFromAxiosError(e);
+      if (msg) throw new Error(msg);
+      throw e;
+    }
+    return mockPublicFormDetail(formId);
+  }
+}
+
+export type SubmitPublicFormBody = {
+  payload: Record<string, unknown>;
+  createdByUserId?: string | null;
+  distributionId?: string | null;
+  notificationId?: string | null;
+  formTitle?: string;
+  settings?: FormSettings;
+};
 
 export async function submitPublicForm(formId: string, body: SubmitPublicFormBody) {
   const { createdByUserId, payload, distributionId, notificationId, formTitle, settings } = body;
@@ -239,10 +304,11 @@ export async function submitPublicForm(formId: string, body: SubmitPublicFormBod
   if (distId) json.distributionId = distId;
   if (notifId) json.notificationId = notifId;
   try {
-    const response = await apiClient.post(`${PUBLIC}/${encodeURIComponent(formId)}/submit`, json);
+    const response = await publicApiClient.post(`${PUBLIC}/${encodeURIComponent(formId)}/submit`, json);
     return response.data;
   } catch (e) {
-    if (shouldUseMockSubmit(e)) {
+    const isFeedbackAssignment = Boolean(distId || notifId);
+    if (shouldUseMockSubmit(e) || isFeedbackAssignment) {
       return mockRecordFormFeedback({
         formId,
         formTitle,

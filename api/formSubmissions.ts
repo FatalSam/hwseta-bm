@@ -1,5 +1,7 @@
 import axios from 'axios';
 import apiClient from '@/ultis/apiClient';
+import publicApiClient from '@/ultis/publicApiClient';
+import { enrichNotificationsWithCompletion } from '@/lib/buildFeedbackAssignments';
 import {
   mockCreateFormDistribution,
   mockGetFormDistribution,
@@ -147,6 +149,14 @@ function normalizeNotification(raw: unknown): FormDistributionNotificationRow | 
     formLink: toStr(o.formLink ?? o.FormLink) || '',
     providerMessageId: toStr(o.providerMessageId ?? o.ProviderMessageId) || null,
     retryCount: toNum(o.retryCount ?? o.RetryCount, 0),
+    completionStatus:
+      toStr(o.completionStatus ?? o.CompletionStatus).toLowerCase() === 'completed'
+        ? 'completed'
+        : toStr(o.completionStatus ?? o.CompletionStatus).toLowerCase() === 'pending'
+          ? 'pending'
+          : null,
+    responseId: toStr(o.responseId ?? o.ResponseId) || null,
+    feedbackSubmittedAt: toStr(o.feedbackSubmittedAt ?? o.FeedbackSubmittedAt ?? o.submittedAt ?? o.SubmittedAt) || null,
   };
 }
 
@@ -239,7 +249,12 @@ export async function listFormDistributionNotifications(
     return unwrapPaged(data, normalizeNotification);
   } catch (e) {
     if (!shouldUseMock(e)) throw e;
-    return mockListFormDistributionNotifications(distributionId, params);
+    const result = mockListFormDistributionNotifications(distributionId, params);
+    const { mockGetAllResponses } = await import('@/data/mockFormFeedback');
+    return {
+      ...result,
+      items: enrichNotificationsWithCompletion(result.items, mockGetAllResponses()),
+    };
   }
 }
 
@@ -284,7 +299,7 @@ export async function retryAllFailedFormDistributionNotifications(
 
 export async function resolveShortLink(code: string): Promise<ShortLinkResult> {
   try {
-    const { data } = await apiClient.get(`${PUBLIC_SHORT}/${encodeURIComponent(code)}`);
+    const { data } = await publicApiClient.get(`${PUBLIC_SHORT}/${encodeURIComponent(code)}`);
     const o = asObject(data) ?? {};
     const resolved: ShortLinkResult = {
       code: toStr(o.code ?? o.Code) || code,

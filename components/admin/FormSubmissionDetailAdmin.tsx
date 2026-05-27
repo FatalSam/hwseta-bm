@@ -293,7 +293,9 @@ export default function FormSubmissionDetailAdmin({ distributionId }: { distribu
                   <th className="px-3 py-2.5">Email</th>
                   <th className="px-3 py-2.5">Cellphone</th>
                   <th className="px-3 py-2.5">Channel</th>
-                  <th className="px-3 py-2.5">Status</th>
+                  <th className="px-3 py-2.5">Delivery</th>
+                  <th className="px-3 py-2.5">Feedback</th>
+                  <th className="px-3 py-2.5">Submitted</th>
                   <th className="px-3 py-2.5">Sent</th>
                   <th className="px-3 py-2.5">Error</th>
                   <th className="px-3 py-2.5 text-right">Actions</th>
@@ -302,13 +304,13 @@ export default function FormSubmissionDetailAdmin({ distributionId }: { distribu
               <tbody className="divide-y divide-slate-100 bg-white">
                 {notifQuery.isLoading ? (
                   <tr>
-                    <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
+                    <td colSpan={11} className="px-3 py-8 text-center text-slate-500">
                       Loading…
                     </td>
                   </tr>
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
+                    <td colSpan={11} className="px-3 py-8 text-center text-slate-500">
                       No notifications match your filters.
                     </td>
                   </tr>
@@ -321,6 +323,14 @@ export default function FormSubmissionDetailAdmin({ distributionId }: { distribu
                       <td className="px-3 py-2.5 text-slate-600">{n.cellphone ?? '—'}</td>
                       <td className="px-3 py-2.5 capitalize text-slate-600">{n.channel}</td>
                       <td className="px-3 py-2.5 capitalize text-slate-600">{n.status}</td>
+                      <td className="px-3 py-2.5 capitalize text-slate-600">
+                        {n.completionStatus === 'completed' ? 'Completed' : 'Pending'}
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-600">
+                        {n.feedbackSubmittedAt
+                          ? n.feedbackSubmittedAt.slice(0, 16).replace('T', ' ')
+                          : '—'}
+                      </td>
                       <td className="px-3 py-2.5 text-slate-600">
                         {n.sentAt ? n.sentAt.slice(0, 16).replace('T', ' ') : '—'}
                       </td>

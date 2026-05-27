@@ -8,9 +8,12 @@ import {
 import {
   mockGetFormFeedback,
   mockListFormFeedback,
+  mockListFormFeedbackAssignments,
 } from '@/data/mockFormFeedback';
 import type { FormSettings } from '@/types/dynamicForm';
 import type {
+  FeedbackCompletionStatus,
+  FormFeedbackAssignmentRow,
   FormFeedbackDetail,
   FormFeedbackListParams,
   FormFeedbackListRow,
@@ -19,6 +22,7 @@ import type {
 import type { PagedResult } from '@/types/formSubmissions';
 
 const MANAGE_RESPONSES = '/api/manage/form-builder/responses';
+const MANAGE_ASSIGNMENTS = '/api/manage/form-builder/feedback-assignments';
 
 function asObject(v: unknown): Record<string, unknown> | null {
   return v != null && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -72,6 +76,49 @@ function parseRecipientType(v: unknown): FormFeedbackRecipientType {
   if (s === 'beneficiary') return 'beneficiary';
   if (s === 'external') return 'external';
   return 'unknown';
+}
+
+function parseCompletionStatus(v: unknown): FeedbackCompletionStatus {
+  return toStr(v).toLowerCase() === 'completed' ? 'completed' : 'pending';
+}
+
+function normalizeAssignment(raw: unknown): FormFeedbackAssignmentRow | null {
+  const o = asObject(raw);
+  if (!o) return null;
+  const distributionId = toStr(o.distributionId ?? o.DistributionId);
+  const formId = toStr(o.formId ?? o.FormId);
+  const assignmentId = toStr(o.assignmentId ?? o.AssignmentId ?? o.id ?? o.ID);
+  if (!distributionId || !formId) return null;
+  const completionStatus = parseCompletionStatus(o.completionStatus ?? o.CompletionStatus);
+  return {
+    assignmentId: assignmentId || `${distributionId}:${formId}`,
+    formId,
+    formTitle: toStr(o.formTitle ?? o.FormTitle) || 'Untitled form',
+    distributionId,
+    notificationId: toNullableStr(o.notificationId ?? o.NotificationId),
+    recipientType: parseRecipientType(o.recipientType ?? o.RecipientType),
+    beneficiaryId: toNullableStr(o.beneficiaryId ?? o.BeneficiaryId),
+    fullName: toNullableStr(o.fullName ?? o.FullName),
+    email: toNullableStr(o.email ?? o.Email),
+    cellphone: toNullableStr(o.cellphone ?? o.Cellphone ?? o.cellNo ?? o.CellNo),
+    completionStatus,
+    responseId: toNullableStr(o.responseId ?? o.ResponseId),
+    submittedAt: toNullableStr(o.submittedAt ?? o.SubmittedAt),
+    sentAt: toNullableStr(o.sentAt ?? o.SentAt),
+    createdAt: toStr(o.createdAt ?? o.CreatedAt ?? o.dateCreated ?? o.DateCreated),
+    deliveryStatus: toNullableStr(o.deliveryStatus ?? o.DeliveryStatus ?? o.status ?? o.Status),
+    formLink: toStr(o.formLink ?? o.FormLink),
+    channels: Array.isArray(o.channels ?? o.Channels)
+      ? (o.channels as unknown[]).map(toStr).filter(Boolean)
+      : toStr(o.channels ?? o.Channels)
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean),
+    programmeName: toNullableStr(o.programmeName ?? o.ProgrammeName),
+    qualificationName: toNullableStr(o.qualificationName ?? o.QualificationName),
+    audienceType: toNullableStr(o.audienceType ?? o.AudienceType),
+    answersSummary: toNullableStr(o.answersSummary ?? o.AnswersSummary),
+  };
 }
 
 function parseSettings(raw: unknown): FormSettings {
@@ -151,6 +198,7 @@ function normalizeListRow(raw: unknown): FormFeedbackListRow | null {
     cellphone: toNullableStr(o.cellphone ?? o.Cellphone ?? o.cellNo ?? o.CellNo),
     submittedAt: toStr(o.submittedAt ?? o.SubmittedAt ?? o.dateCreated ?? o.DateCreated),
     answersSummary,
+    completionStatus: parseCompletionStatus(o.completionStatus ?? o.CompletionStatus ?? 'completed'),
   };
 }
 
@@ -181,6 +229,7 @@ function normalizeDetail(raw: unknown): FormFeedbackDetail | null {
     answers,
     answersSummary: list.answersSummary ?? summarizeFormResponseAnswers(answers),
     createdByUserId: toNullableStr(o.createdByUserId ?? o.CreatedByUserId),
+    completionStatus: list.completionStatus ?? 'completed',
   };
 }
 
@@ -194,11 +243,31 @@ function buildParams(params: FormFeedbackListParams = {}): Record<string, string
   if (distributionId) out.distributionId = distributionId;
   const recipientType = params.recipientType?.trim();
   if (recipientType && recipientType !== 'unknown') out.recipientType = recipientType;
+  const completionStatus = params.completionStatus?.trim();
+  if (completionStatus === 'completed' || completionStatus === 'pending') {
+    out.completionStatus = completionStatus;
+  }
   const search = params.search?.trim();
   if (search) out.search = search;
   if (params.submittedFrom) out.submittedFrom = params.submittedFrom;
   if (params.submittedTo) out.submittedTo = params.submittedTo;
   return out;
+}
+
+export async function listFormFeedbackAssignments(
+  params: FormFeedbackListParams = {},
+): Promise<PagedResult<FormFeedbackAssignmentRow>> {
+  try {
+    const { data } = await apiClient.get(MANAGE_ASSIGNMENTS, { params: buildParams(params) });
+    return unwrapPaged(data, normalizeAssignment);
+  } catch (e) {
+    if (!shouldUseMock(e)) throw e;
+    return mockListFormFeedbackAssignments(params);
+  }
+}
+
+export function parseFormFeedbackDetail(data: unknown): FormFeedbackDetail | null {
+  return normalizeDetail(data);
 }
 
 export async function listFormFeedback(

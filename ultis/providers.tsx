@@ -10,6 +10,7 @@ import { initializeGridScrollSync } from '@/lib/grid-scroll-sync';
 import { usePathname, useRouter } from 'next/navigation';
 import { NotificationProvider } from '@/components/ui/notification';
 import { ThemeProvider } from '@/components/theme-provider';
+import { isPublicPortalPath } from '@/lib/publicPortalPaths';
 
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 const WARNING_COUNTDOWN_SECONDS = 60;
@@ -126,6 +127,13 @@ function SessionManager({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isAuthenticated) {
+      clearSessionTimers();
+      setShowWarning(false);
+      setSecondsRemaining(WARNING_COUNTDOWN_SECONDS);
+      return;
+    }
+
+    if (isPublicPortalPath(pathname ?? '')) {
       clearSessionTimers();
       setShowWarning(false);
       setSecondsRemaining(WARNING_COUNTDOWN_SECONDS);

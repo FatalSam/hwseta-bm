@@ -12,10 +12,16 @@ import type {
 } from '@/types/formFeedback';
 import type { PagedResult } from '@/types/formSubmissions';
 import {
+  buildAssignmentsFromNotifications,
+  filterAssignments,
+  paginateAssignments,
+} from '@/lib/buildFeedbackAssignments';
+import {
   mockFindNotification,
   mockGetFormDistribution,
   mockListFormDistributionNotifications,
   mockListFormDistributions,
+  mockSnapshotDistributionData,
 } from '@/data/mockFormSubmissions';
 
 const MOCK_STORAGE_KEY = 'hwseta-mock-form-feedback-v1';
@@ -108,6 +114,7 @@ function toListRow(detail: FormFeedbackDetail): FormFeedbackListRow {
     cellphone: detail.cellphone,
     submittedAt: detail.submittedAt,
     answersSummary: detail.answersSummary,
+    completionStatus: detail.completionStatus,
   };
 }
 
@@ -151,6 +158,7 @@ function seedIfEmpty() {
     answers: beneficiaryAnswers,
     answersSummary: summarizeFormResponseAnswers(beneficiaryAnswers),
     createdByUserId: null,
+    completionStatus: 'completed',
   });
 
   const externalPayload = { f_rating: 'Excellent', f_comments: 'Great experience.' };
@@ -172,6 +180,7 @@ function seedIfEmpty() {
     answers: externalAnswers,
     answersSummary: summarizeFormResponseAnswers(externalAnswers),
     createdByUserId: null,
+    completionStatus: 'completed',
   });
 
   persist();
@@ -207,6 +216,9 @@ export function mockListFormFeedback(
   }
   if (params.recipientType && params.recipientType !== 'unknown') {
     rows = rows.filter((r) => r.recipientType === params.recipientType);
+  }
+  if (params.completionStatus) {
+    rows = rows.filter((r) => r.completionStatus === params.completionStatus);
   }
   if (params.search?.trim()) {
     const q = params.search.trim().toLowerCase();
@@ -298,9 +310,33 @@ export function mockRecordFormFeedback(ctx: FormFeedbackSubmitContext): FormFeed
     answers,
     answersSummary: summarizeFormResponseAnswers(answers),
     createdByUserId: ctx.createdByUserId ?? null,
+    completionStatus: 'completed',
   };
 
   responses.unshift(detail);
   persist();
   return detail;
+}
+
+export function mockGetAllResponses(): FormFeedbackDetail[] {
+  seedIfEmpty();
+  return [...responses];
+}
+
+export function mockListFormFeedbackAssignments(
+  params: FormFeedbackListParams = {},
+  options?: { beneficiaryId?: string | null },
+) {
+  seedIfEmpty();
+  const { distributions, notificationsByDist } = mockSnapshotDistributionData();
+  let rows = buildAssignmentsFromNotifications(
+    distributions,
+    notificationsByDist,
+    responses,
+    options,
+  );
+  rows = filterAssignments(rows, params);
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 25;
+  return paginateAssignments(rows, page, pageSize);
 }

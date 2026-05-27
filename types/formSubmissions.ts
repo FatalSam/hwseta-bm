@@ -74,6 +74,9 @@ export interface FormDistributionNotificationRow {
   formLink: string;
   providerMessageId?: string | null;
   retryCount?: number;
+  completionStatus?: 'pending' | 'completed' | null;
+  responseId?: string | null;
+  feedbackSubmittedAt?: string | null;
 }
 
 export interface FormDistributionListParams {

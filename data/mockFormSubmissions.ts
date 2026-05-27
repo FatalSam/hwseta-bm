@@ -441,6 +441,18 @@ export function mockResolveShortLink(code: string): ShortLinkResult | null {
   return shortLinks[code] ?? null;
 }
 
+/** Snapshot for feedback assignment mocks */
+export function mockSnapshotDistributionData(): {
+  distributions: FormDistributionRow[];
+  notificationsByDist: Record<string, FormDistributionNotificationRow[]>;
+} {
+  seedIfEmpty();
+  return {
+    distributions: [...distributions],
+    notificationsByDist: { ...notificationsByDist },
+  };
+}
+
 export function mockCreateShortLink(formId: string, distributionId?: string): ShortLinkResult {
   const code = shortCode();
   const targetUrl = buildFormLink(formId, distributionId);

@@ -2,6 +2,7 @@ import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
 import { environment } from "@/config/environment";
 import { buildUserFromToken } from "@/lib/jwt-utils";
+import { isPublicPortalPath } from "@/lib/publicPortalPaths";
 
 const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please log in again.';
 
@@ -21,6 +22,16 @@ function isRefreshTokenRequest(config: { url?: string; baseURL?: string }): bool
 /** Matches /api/Auth/... and legacy /api/auth/... */
 function isAuthRequest(config: { url?: string; baseURL?: string }): boolean {
     return getRequestUrl(config).toLowerCase().includes('/api/auth/');
+}
+
+/** Public form fill + short links — no JWT; optional createdByUserId in submit body only. */
+function isPublicFormBuilderRequest(config: { url?: string; baseURL?: string }): boolean {
+    return getRequestUrl(config).toLowerCase().includes('/api/form-builder/');
+}
+
+function shouldSkipSessionLogoutRedirect(): boolean {
+    if (typeof window === 'undefined') return false;
+    return isPublicPortalPath(window.location.pathname);
 }
 
 async function tryRefresh(): Promise<boolean> {
@@ -60,8 +71,8 @@ apiClient.interceptors.request.use(
         // Get the token from the auth store
         const token = useAuthStore.getState().token;
         
-        // Do not attach stale auth headers to login/register endpoints.
-        if (token && !isAuthRequest(config)) {
+        // Do not attach stale auth headers to login/register or anonymous public form routes.
+        if (token && !isAuthRequest(config) && !isPublicFormBuilderRequest(config)) {
             config.headers.Authorization = `Bearer ${token}`;
         }
         
@@ -168,6 +179,20 @@ apiClient.interceptors.response.use(
         // 401: try refresh once (unless this was the refresh request), then logout and redirect on failure
         if (status === 401) {
             const config = error.config ?? {};
+            // Public form submit/fill must not log the user out (beneficiary may be logged in elsewhere).
+            if (isPublicFormBuilderRequest(config)) {
+                const err = new Error(userMessage) as Error & { status?: number; responseData?: unknown };
+                err.status = 401;
+                if (error.response?.data) {
+                    try {
+                        JSON.stringify(error.response.data);
+                        err.responseData = error.response.data;
+                    } catch {
+                        /* ignore */
+                    }
+                }
+                return Promise.reject(err);
+            }
             if (isAuthRequest(config) && !isRefreshTokenRequest(config)) {
                 const err = new Error(userMessage) as Error & { status?: number; responseData?: unknown };
                 err.status = 401;
@@ -182,8 +207,10 @@ apiClient.interceptors.response.use(
                 return Promise.reject(err);
             }
             if (isRefreshTokenRequest(config)) {
-                useAuthStore.getState().logout();
-                if (typeof window !== 'undefined') window.location.href = '/login';
+                if (!shouldSkipSessionLogoutRedirect()) {
+                    useAuthStore.getState().logout();
+                    if (typeof window !== 'undefined') window.location.href = '/login';
+                }
                 const err = new Error(userMessage) as Error & { status?: number };
                 err.status = 401;
                 return Promise.reject(err);
@@ -196,8 +223,10 @@ apiClient.interceptors.response.use(
                     return apiClient.request(config);
                 }
             }
-            useAuthStore.getState().logout();
-            if (typeof window !== 'undefined') window.location.href = '/login';
+            if (!shouldSkipSessionLogoutRedirect()) {
+                useAuthStore.getState().logout();
+                if (typeof window !== 'undefined') window.location.href = '/login';
+            }
             const err = new Error(userMessage) as Error & { status?: number };
             err.status = 401;
             return Promise.reject(err);

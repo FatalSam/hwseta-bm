@@ -1,9 +1,18 @@
+import axios from 'axios';
 import apiClient from '@/ultis/apiClient';
+import { getFormFeedback, parseFormFeedbackDetail } from '@/api/formFeedback';
+import {
+  mockGetMyFeedbackFormResponse,
+  mockListAdminBeneficiaryFeedbackForms,
+  mockListMyFeedbackForms,
+} from '@/data/mockBeneficiaryFeedbackForms';
+import type { FeedbackCompletionStatus } from '@/types/formFeedback';
 import type {
   BeneficiaryFeedbackFormRow,
   BeneficiaryFeedbackFormsParams,
   BeneficiaryFeedbackFormsResult,
 } from '@/types/beneficiaryFeedbackForms';
+import type { FormFeedbackDetail } from '@/types/formFeedback';
 
 const BENEFICIARY_BASE = '/api/beneficiary/feedback-forms';
 const ADMIN_BENEFICIARY_BASE = '/api/Admin/beneficiaries';
@@ -30,6 +39,27 @@ function toNullableStr(v: unknown): string | null {
   return s || null;
 }
 
+function parseCompletionStatus(v: unknown): FeedbackCompletionStatus {
+  return toStr(v).toLowerCase() === 'completed' ? 'completed' : 'pending';
+}
+
+function getErrorStatus(error: unknown): number | undefined {
+  if (axios.isAxiosError(error)) return error.response?.status;
+  return undefined;
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  if (axios.isAxiosError(error)) return error.code;
+  return undefined;
+}
+
+function shouldUseMock(error: unknown): boolean {
+  const status = getErrorStatus(error);
+  if (status != null) return status === 404 || status === 501 || status === 405;
+  const code = getErrorCode(error);
+  return code === 'ERR_NETWORK' || code === 'ECONNABORTED';
+}
+
 function normalizeChannels(v: unknown): string[] {
   if (Array.isArray(v)) {
     return v.map(toStr).filter(Boolean);
@@ -46,6 +76,8 @@ function normalizeRow(raw: unknown): BeneficiaryFeedbackFormRow | null {
   const distributionId = toStr(o.distributionId ?? o.DistributionId);
   const formId = toStr(o.formId ?? o.FormId);
   if (!distributionId || !formId) return null;
+  const deliveryStatus = toStr(o.deliveryStatus ?? o.DeliveryStatus ?? o.status ?? o.Status) || 'pending';
+  const completionStatus = parseCompletionStatus(o.completionStatus ?? o.CompletionStatus);
   return {
     distributionId,
     formId,
@@ -56,17 +88,21 @@ function normalizeRow(raw: unknown): BeneficiaryFeedbackFormRow | null {
     qualificationId: toNum(o.qualificationId ?? o.QualificationId, NaN) || null,
     qualificationName: toNullableStr(o.qualificationName ?? o.QualificationName),
     channels: normalizeChannels(o.channels ?? o.Channels),
-    status: toStr(o.status ?? o.Status) || 'pending',
+    status: deliveryStatus,
+    deliveryStatus,
+    completionStatus,
     createdAt: toStr(o.createdAt ?? o.CreatedAt ?? o.dateCreated ?? o.DateCreated),
     sentAt: toNullableStr(o.sentAt ?? o.SentAt),
+    submittedAt: toNullableStr(o.submittedAt ?? o.SubmittedAt),
     notificationId: toNullableStr(o.notificationId ?? o.NotificationId),
+    responseId: toNullableStr(o.responseId ?? o.ResponseId),
     beneficiaryId: toNullableStr(o.beneficiaryId ?? o.BeneficiaryId),
     fullName: toNullableStr(o.fullName ?? o.FullName),
     email: toNullableStr(o.email ?? o.Email),
     cellphone: toNullableStr(o.cellphone ?? o.Cellphone ?? o.cellNo ?? o.CellNo),
     shortLink: toNullableStr(o.shortLink ?? o.ShortLink),
     formLink: toStr(o.formLink ?? o.FormLink),
-    notificationCount: toNum(o.notificationCount ?? o.NotificationCount),
+    notificationCount: toNum(o.notificationCount ?? o.NotificationCount, 1),
   };
 }
 
@@ -74,8 +110,10 @@ function buildParams(params: BeneficiaryFeedbackFormsParams = {}): Record<string
   const out: Record<string, string | number> = {};
   if (params.page != null) out.page = params.page;
   if (params.pageSize != null) out.pageSize = params.pageSize;
-  const status = params.status?.trim();
-  if (status) out.status = status;
+  const completionStatus = params.completionStatus ?? params.status?.trim();
+  if (completionStatus === 'completed' || completionStatus === 'pending') {
+    out.completionStatus = completionStatus;
+  }
   const search = params.search?.trim();
   if (search) out.search = search;
   return out;
@@ -88,24 +126,53 @@ function unwrapPaged(data: unknown): BeneficiaryFeedbackFormsResult {
   const page = toNum(root.page ?? root.Page, 1);
   const pageSize = toNum(root.pageSize ?? root.PageSize, items.length || 25);
   const totalCount = toNum(root.totalCount ?? root.TotalCount, items.length);
-  const totalPages = toNum(root.totalPages ?? root.TotalPages, Math.max(1, Math.ceil(totalCount / Math.max(1, pageSize))));
+  const totalPages = toNum(
+    root.totalPages ?? root.TotalPages,
+    Math.max(1, Math.ceil(totalCount / Math.max(1, pageSize))),
+  );
   return { items, page, pageSize, totalCount, totalPages };
 }
 
 export async function listMyFeedbackForms(
   params?: BeneficiaryFeedbackFormsParams,
 ): Promise<BeneficiaryFeedbackFormsResult> {
-  const { data } = await apiClient.get(BENEFICIARY_BASE, { params: buildParams(params) });
-  return unwrapPaged(data);
+  try {
+    const { data } = await apiClient.get(BENEFICIARY_BASE, { params: buildParams(params) });
+    return unwrapPaged(data);
+  } catch (e) {
+    if (!shouldUseMock(e)) throw e;
+    return mockListMyFeedbackForms(params);
+  }
 }
 
 export async function listAdminBeneficiaryFeedbackForms(
   beneficiaryId: string,
   params?: BeneficiaryFeedbackFormsParams,
 ): Promise<BeneficiaryFeedbackFormsResult> {
-  const { data } = await apiClient.get(
-    `${ADMIN_BENEFICIARY_BASE}/${encodeURIComponent(beneficiaryId)}/feedback-forms`,
-    { params: buildParams(params) },
-  );
-  return unwrapPaged(data);
+  try {
+    const { data } = await apiClient.get(
+      `${ADMIN_BENEFICIARY_BASE}/${encodeURIComponent(beneficiaryId)}/feedback-forms`,
+      { params: buildParams(params) },
+    );
+    return unwrapPaged(data);
+  } catch (e) {
+    if (!shouldUseMock(e)) throw e;
+    return mockListAdminBeneficiaryFeedbackForms(beneficiaryId, params);
+  }
+}
+
+export async function getMyFeedbackFormResponse(responseId: string): Promise<FormFeedbackDetail> {
+  try {
+    const { data } = await apiClient.get(
+      `${BENEFICIARY_BASE}/${encodeURIComponent(responseId)}`,
+    );
+    const detail = parseFormFeedbackDetail(data);
+    if (!detail) throw new Error('Response not found.');
+    return detail;
+  } catch (e) {
+    if (!shouldUseMock(e)) throw e;
+    const row = mockGetMyFeedbackFormResponse(responseId);
+    if (!row?.responseId) throw new Error('Response not found.');
+    return getFormFeedback(responseId);
+  }
 }

@@ -507,8 +507,9 @@ When implemented, wire in:
 | `retryFormDistributionNotification` | §7.5 |
 | `retryAllFailedFormDistributionNotifications` | §7.6 |
 | `resolveShortLink` (public) | §8.1 |
-| `api/formFeedback.ts` → `listFormFeedback` | §16.2 |
+| `api/formFeedback.ts` → `listFormFeedbackAssignments` | §16.6 |
 | `getFormFeedback` | §16.3 |
+| `api/beneficiaryFeedbackForms.ts` → `listMyFeedbackForms` | §16.5 |
 | `submitPublicForm` (`distributionId`, `notificationId`) | §16.4 |
 
 Normalize PascalCase/camelCase in the API module (same as `api/formBuilder.ts`).
@@ -609,3 +610,38 @@ GET /api/manage/form-builder/responses/{responseId}
 ```
 
 Validate notification belongs to form (and distribution if both provided). Public form URL: `?d={distributionId}&n={notificationId}`.
+
+### 16.5 Beneficiary feedback-forms (inbox)
+
+```
+GET /api/beneficiary/feedback-forms
+GET /api/beneficiary/feedback-forms/{responseId}
+```
+
+**List query:** `page`, `pageSize`, `completionStatus` (`pending` | `completed`), `search`.
+
+**List item fields:** existing distribution/form fields plus `completionStatus`, `responseId`, `submittedAt`, `deliveryStatus` (optional alias of notification delivery `status`).
+
+One row per recipient per distribution (aggregate email/SMS channels).
+
+**Detail:** same shape as §16.3; JWT beneficiary must own the response.
+
+### 16.6 Admin feedback assignments
+
+```
+GET /api/manage/form-builder/feedback-assignments
+```
+
+**Query:** `page`, `pageSize`, `formId`, `distributionId`, `recipientType`, `completionStatus`, `submittedFrom`, `submittedTo`, `search`.
+
+**List item:** `assignmentId`, form/distribution/recipient fields, `completionStatus`, `responseId`, `submittedAt`, `sentAt`, `deliveryStatus`, `formLink`, `answersSummary`.
+
+All beneficiaries and external recipients who were sent a form — not only those who submitted.
+
+### 16.7 Notification enrichment (optional)
+
+`GET .../distributions/{distributionId}/notifications` items may include:
+
+- `completionStatus` — `pending` | `completed`
+- `responseId` — when completed
+- `feedbackSubmittedAt` — when completed
