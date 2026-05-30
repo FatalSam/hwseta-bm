@@ -86,7 +86,12 @@ type ProfilePageProps = {
 type ProfileTabId = "personal" | "address" | "programmes" | "employment" | "submit";
 type EmploymentSelection = "" | "Currently Employed" | "Not employed" | "Volunteering";
 type ProgrammeDraftCustomField = "programme" | "qualification" | "trainingProvider" | "employer";
-type SearchableOption = { value: string; label: string };
+type SearchableOption = {
+  value: string;
+  label: string;
+  groupLabel?: string;
+  groupDescription?: string;
+};
 
 /** Dropdown `name` from `GET /api/Dropdowns/stipend-frequencies` — maps to `stipend: false`. */
 const STIPEND_PAY_FREQUENCY_NONE = "I did not receive a stipend";
@@ -559,6 +564,9 @@ function SearchableSelectField({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const pointerInsideDropdownRef = useRef(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -574,8 +582,71 @@ function SearchableSelectField({
   const filteredOptions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return options;
-    return options.filter((option) => option.label.toLowerCase().includes(normalizedQuery));
+    return options.filter((option) =>
+      [option.label, option.groupLabel, option.groupDescription]
+        .some((value) => (value ?? "").toLowerCase().includes(normalizedQuery)),
+    );
   }, [options, query]);
+
+  const groupedSections = useMemo(() => {
+    const sections: Array<{
+      key: string;
+      label: string;
+      description?: string;
+      options: SearchableOption[];
+    }> = [];
+    const sectionByKey = new Map<string, (typeof sections)[number]>();
+
+    filteredOptions.forEach((option) => {
+      const label = option.groupLabel?.trim();
+      if (!label) return;
+
+      const key = label.toLowerCase();
+      let section = sectionByKey.get(key);
+      if (!section) {
+        section = {
+          key,
+          label,
+          description: option.groupDescription,
+          options: [],
+        };
+        sectionByKey.set(key, section);
+        sections.push(section);
+      }
+
+      section.options.push(option);
+    });
+
+    return sections;
+  }, [filteredOptions]);
+  const hasGroupedOptions = groupedSections.length > 0;
+  const isSearchingOptions = query.trim().length > 0;
+
+  useEffect(() => {
+    if (!isOpen || !hasGroupedOptions || isSearchingOptions || !value) return;
+    const selectedOption = options.find((option) => option.value === value);
+    const selectedGroupKey = selectedOption?.groupLabel?.trim().toLowerCase();
+    if (!selectedGroupKey) return;
+
+    setExpandedGroups((current) => {
+      if (current.has(selectedGroupKey)) return current;
+      const next = new Set(current);
+      next.add(selectedGroupKey);
+      return next;
+    });
+  }, [hasGroupedOptions, isOpen, isSearchingOptions, options, value]);
+
+  const toggleGroup = useCallback((groupKey: string) => {
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  }, []);
 
   return (
     <div className="relative space-y-2.5">
@@ -584,6 +655,7 @@ function SearchableSelectField({
       {!customVisible && (
         <div className="relative">
           <input
+            ref={inputRef}
             type="text"
             value={isOpen ? query : selectedLabel}
             onFocus={() => {
@@ -603,6 +675,7 @@ function SearchableSelectField({
             }}
             onBlur={() => {
               window.setTimeout(() => {
+                if (pointerInsideDropdownRef.current) return;
                 setIsOpen(false);
                 setQuery(selectedLabel);
               }, 120);
@@ -620,31 +693,115 @@ function SearchableSelectField({
           <FaChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
           {isOpen && !disabled && (
-            <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.16)]">
+            <div
+              className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.16)]"
+              onMouseEnter={() => {
+                pointerInsideDropdownRef.current = true;
+              }}
+              onMouseLeave={() => {
+                pointerInsideDropdownRef.current = false;
+                if (document.activeElement !== inputRef.current) {
+                  setIsOpen(false);
+                  setQuery(selectedLabel);
+                }
+              }}
+              onWheel={(event) => {
+                pointerInsideDropdownRef.current = true;
+                event.stopPropagation();
+              }}
+            >
               <div className="border-b border-slate-100 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">
-                {query.trim() ? `Filtered results (${filteredOptions.length})` : `Options (${options.length})`}
+                {hasGroupedOptions
+                  ? `${groupedSections.length} categories · ${filteredOptions.length} programmes`
+                  : query.trim()
+                    ? `Filtered results (${filteredOptions.length})`
+                    : `Options (${options.length})`}
               </div>
-              <div className="max-h-64 overflow-y-auto py-2">
+              <div className="max-h-72 overflow-y-auto py-2">
                 {filteredOptions.length > 0 ? (
-                  filteredOptions.map((option) => (
-                    <button
-                      key={`${option.value}-${option.label}`}
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        onSelect(option.value);
-                        setIsOpen(false);
-                        setQuery(option.label);
-                      }}
-                      className={cn(
-                        "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-[#017f3f]/5",
-                        value === option.value ? "bg-[#017f3f]/8 text-[#017f3f]" : "text-slate-700",
-                      )}
-                    >
-                      <span className="truncate">{option.label}</span>
-                      {value === option.value && <FaCheck className="ml-3 h-3.5 w-3.5 shrink-0" />}
-                    </button>
-                  ))
+                  hasGroupedOptions ? (
+                    <div className="divide-y divide-slate-100">
+                      {groupedSections.map((section) => {
+                        const expanded = isSearchingOptions || expandedGroups.has(section.key);
+
+                        return (
+                          <div key={section.key} className="bg-white">
+                            <button
+                              type="button"
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => toggleGroup(section.key)}
+                              className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
+                            >
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500">
+                                {expanded ? (
+                                  <FaChevronUp className="h-3.5 w-3.5" aria-hidden />
+                                ) : (
+                                  <FaPlus className="h-3.5 w-3.5" aria-hidden />
+                                )}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-semibold text-slate-950">
+                                  {section.label}
+                                </span>
+                                {section.description && expanded && (
+                                  <span className="mt-1 line-clamp-2 block text-xs leading-5 text-slate-500">
+                                    {section.description}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="shrink-0 rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold text-slate-900">
+                                {section.options.length}
+                              </span>
+                            </button>
+
+                            {expanded && (
+                              <div className="bg-slate-50/55 py-1">
+                                {section.options.map((option) => (
+                                  <button
+                                    key={`${section.key}-${option.value}-${option.label}`}
+                                    type="button"
+                                    onMouseDown={(event) => event.preventDefault()}
+                                    onClick={() => {
+                                      onSelect(option.value);
+                                      setIsOpen(false);
+                                      setQuery(option.label);
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center justify-between py-2.5 pl-16 pr-4 text-left text-sm transition hover:bg-[#017f3f]/5",
+                                      value === option.value ? "bg-[#017f3f]/8 text-[#017f3f]" : "text-slate-700",
+                                    )}
+                                  >
+                                    <span className="truncate">{option.label}</span>
+                                    {value === option.value && <FaCheck className="ml-3 h-3.5 w-3.5 shrink-0" />}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    filteredOptions.map((option) => (
+                      <button
+                        key={`${option.value}-${option.label}`}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          onSelect(option.value);
+                          setIsOpen(false);
+                          setQuery(option.label);
+                        }}
+                        className={cn(
+                          "flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-[#017f3f]/5",
+                          value === option.value ? "bg-[#017f3f]/8 text-[#017f3f]" : "text-slate-700",
+                        )}
+                      >
+                        <span className="truncate">{option.label}</span>
+                        {value === option.value && <FaCheck className="ml-3 h-3.5 w-3.5 shrink-0" />}
+                      </button>
+                    ))
+                  )
                 ) : (
                   <div className="px-4 py-4 text-sm text-slate-500">
                     {selectionOnly ? "No options available." : "No matches found. Try another search or add a custom value."}
@@ -660,7 +817,7 @@ function SearchableSelectField({
         <button
           type="button"
           onClick={onShowCustom}
-          className="inline-flex items-center rounded-full border border-[#feca07]/45 bg-[#feca07]/12 px-3 py-1.5 text-xs font-semibold text-[#d81920] transition hover:border-[#d81920]/40 hover:bg-[#feca07]/20 hover:text-[#b1141a]"
+          className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-[#017f3f]/25 hover:bg-[#017f3f]/5 hover:text-[#017f3f]"
         >
           {customTriggerLabel}
         </button>
@@ -878,14 +1035,20 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
     () => new Map(qualificationOptions.map((option) => [option.id, option.name])),
     [qualificationOptions],
   );
-  const programmeSearchOptions = useMemo<SearchableOption[]>(
-    () =>
-      programmeOptions.programmes.map((option) => ({
-        value: String(option.id ?? ""),
-        label: option.name ?? "",
-      })),
-    [programmeOptions.programmes],
-  );
+  const programmeSearchOptions = useMemo<SearchableOption[]>(() => {
+    const hasProgrammeTypeGroups = programmeOptions.programmes.some((option) =>
+      normalizeString(option.programmeTypeName),
+    );
+
+    return programmeOptions.programmes.map((option) => ({
+      value: String(option.id ?? ""),
+      label: option.name ?? "",
+      groupLabel: hasProgrammeTypeGroups
+        ? normalizeString(option.programmeTypeName) || "Other programmes"
+        : undefined,
+      groupDescription: normalizeString(option.programmeTypeDescription) || undefined,
+    }));
+  }, [programmeOptions.programmes]);
   const getGeneratedProgrammeProofDocumentTitle = useCallback(
     (row: ProgrammeLinkDraft) => {
       const programmeName =
@@ -4936,14 +5099,13 @@ export default function ProfilePage({ adminMode = false, adminBeneficiaryId = nu
                               >
                             <SearchableSelectField
                               label="Programme"
-                              placeholder="Select a programme"
+                              placeholder="Type to search programmes"
                               value={programmeDraft.programmeId}
                               selectedLabel={
                                 programmeSearchOptions.find((option) => option.value === programmeDraft.programmeId)?.label ?? ""
                               }
                               options={programmeSearchOptions}
                               openWithFullList
-                              selectionOnly
                               resetToken={`programme-${programmeDraftCustomFields.programme}-${programmeDraft.programmeId}-${programmeDraft.programmeName}`}
                               onSelect={(nextProgrammeId) => {
                                 updateProgrammeDraft((current) => ({

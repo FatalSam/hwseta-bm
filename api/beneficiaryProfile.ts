@@ -127,12 +127,34 @@ function normalizeProfileOptions(data: unknown): BeneficiaryProfileOptions {
             : (['qualificationName', 'QualificationName', 'qualification'] as const)
                 .map((key) => itemRecord[key])
                 .find((value) => value != null && String(value).trim() !== '') ?? null;
+        const programmeTypeId =
+          itemRecord == null
+            ? null
+            : (['programmeTypeId', 'ProgrammeTypeId', 'programmeTypeID', 'ProgrammeTypeID'] as const)
+                .map((key) => itemRecord[key])
+                .find((value) => value != null && String(value).trim() !== '') ?? null;
+        const programmeTypeName =
+          itemRecord == null
+            ? null
+            : (['programmeTypeName', 'ProgrammeTypeName', 'typeName', 'TypeName'] as const)
+                .map((key) => itemRecord[key])
+                .find((value) => value != null && String(value).trim() !== '') ?? null;
+        const programmeTypeDescription =
+          itemRecord == null
+            ? null
+            : (['programmeTypeDescription', 'ProgrammeTypeDescription', 'description', 'Description'] as const)
+                .map((key) => itemRecord[key])
+                .find((value) => value != null && String(value).trim() !== '') ?? null;
         return normalized
           ? [{
               ...normalized,
               qualificationId:
                 qualificationId == null ? null : typeof qualificationId === 'number' ? qualificationId : String(qualificationId),
               qualificationName: qualificationName == null ? null : String(qualificationName).trim(),
+              programmeTypeId:
+                programmeTypeId == null ? null : typeof programmeTypeId === 'number' ? programmeTypeId : String(programmeTypeId),
+              programmeTypeName: programmeTypeName == null ? null : String(programmeTypeName).trim(),
+              programmeTypeDescription: programmeTypeDescription == null ? null : String(programmeTypeDescription).trim(),
             }]
           : [];
       }),

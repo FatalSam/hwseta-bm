@@ -27,6 +27,9 @@ export interface ProgrammeLinkOption {
   name: string;
   qualificationId?: BeneficiaryEntityId | null;
   qualificationName?: string | null;
+  programmeTypeId?: BeneficiaryEntityId | null;
+  programmeTypeName?: string | null;
+  programmeTypeDescription?: string | null;
 }
 
 export interface BeneficiaryProfileOptions {
